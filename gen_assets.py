@@ -1,31 +1,83 @@
 #!/usr/bin/env python3
 """Generate all image assets for the bip6-face watchface.
 
+Digits/labels are rendered in the classic X11 `misc-fixed` 10x20 bitmap font
+(from xfonts-base), nearest-neighbor upscaled so every pixel stays a crisp
+block — early-xterm style.
+
 Produces, under assets/bip6/:
   background.png          390x450 glxgears-inspired background (red/green/blue gears)
   icon.png                192x192 app icon (red gear)
   preview.png             390x450 preview with sample data baked in
-  time/0.png..9.png       large white digits for HH:MM
+  time/0.png..9.png       big white digits for HH:MM (scale 5)
   time/colon.png          colon separator
-  steps/0.png..9.png      small green digits
-  batt/0.png..9.png       small blue digits
+  date/0.png..9.png       white digits for MM/DD (scale 2)
+  date/slash.png          '/' separator
+  week/0.png..6.png       MON..SUN day abbreviations (scale 2)
+  steps/0.png..9.png      green digits (scale 2)
+  batt/0.png..9.png       blue digits (scale 2)
   batt/percent.png        blue '%' unit
   label_steps.png         'STEPS' label
   label_batt.png          'BATTERY' label
 """
+import gzip
 import math
 import os
+import shutil
+import tempfile
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 390, 450
 SS = 4  # supersampling factor for antialiased gears
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "bip6")
 
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+PCF_GZ = "/usr/share/fonts/X11/misc/10x20-ISO8859-1.pcf.gz"
+CELL_W, CELL_H = 10, 20  # misc-fixed 10x20 glyph cell
+PAD = 1                  # native padding for the 1px outline
 
 RED = (215, 60, 50)
 GREEN = (60, 190, 80)
 BLUE = (70, 110, 230)
+WHITE = (255, 255, 255)
+GRAY = (190, 190, 190)
+
+WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+
+_font = None
+
+
+def pixel_font():
+    global _font
+    if _font is None:
+        tmp = tempfile.NamedTemporaryFile(suffix=".pcf", delete=False)
+        with gzip.open(PCF_GZ, "rb") as f:
+            shutil.copyfileobj(f, tmp)
+        tmp.close()
+        _font = ImageFont.truetype(tmp.name, CELL_H)
+    return _font
+
+
+def pixel_text(text, scale, color, out_path, crop_w=False):
+    """Render text in misc-fixed at native size with a 1px black outline,
+    then upscale with NEAREST for chunky pixels. crop_w trims empty columns
+    (used for the skinny colon)."""
+    font = pixel_font()
+    nw, nh = CELL_W * len(text) + 2 * PAD, CELL_H + 2 * PAD
+    mask = Image.new("L", (nw, nh), 0)
+    ImageDraw.Draw(mask).text((PAD, PAD), text, font=font, fill=255)
+    img = Image.new("RGBA", (nw, nh), (0, 0, 0, 0))
+    black = Image.new("RGBA", (nw, nh), (0, 0, 0, 255))
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            if dx or dy:
+                img.paste(black, (dx, dy), mask)
+    img.paste(Image.new("RGBA", (nw, nh), color + (255,)), (0, 0), mask)
+    if crop_w:
+        bbox = img.getbbox()
+        img = img.crop((max(0, bbox[0] - 1), 0, min(nw, bbox[2] + 1), nh))
+    img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    img.save(out_path)
+    return img.size
 
 
 def dim(color, f):
@@ -79,36 +131,21 @@ def make_background():
     return bg
 
 
-def glyph(ch, cell_w, cell_h, font_size, color, out_path):
-    img = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    font = ImageFont.truetype(FONT_PATH, font_size)
-    l, t, r, b = d.textbbox((0, 0), ch, font=font)
-    x = (cell_w - (r - l)) // 2 - l
-    y = (cell_h - (b - t)) // 2 - t
-    d.text((x, y), ch, font=font, fill=color + (255,), stroke_width=2, stroke_fill=(0, 0, 0, 200))
-    img.save(out_path)
-
-
 def make_fonts():
-    os.makedirs(os.path.join(OUT, "time"), exist_ok=True)
-    os.makedirs(os.path.join(OUT, "steps"), exist_ok=True)
-    os.makedirs(os.path.join(OUT, "batt"), exist_ok=True)
+    for sub in ("time", "date", "week", "steps", "batt"):
+        os.makedirs(os.path.join(OUT, sub), exist_ok=True)
     for i in range(10):
-        glyph(str(i), 60, 104, 92, (255, 255, 255), os.path.join(OUT, "time", f"{i}.png"))
-        glyph(str(i), 26, 40, 34, GREEN, os.path.join(OUT, "steps", f"{i}.png"))
-        glyph(str(i), 26, 40, 34, BLUE, os.path.join(OUT, "batt", f"{i}.png"))
-    glyph(":", 26, 104, 92, (255, 255, 255), os.path.join(OUT, "time", "colon.png"))
-    glyph("%", 34, 40, 34, BLUE, os.path.join(OUT, "batt", "percent.png"))
-
-
-def make_label(text, color, out_path):
-    font = ImageFont.truetype(FONT_PATH, 20)
-    tmp = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-    l, t, r, b = tmp.textbbox((0, 0), text, font=font)
-    img = Image.new("RGBA", (r - l + 8, b - t + 8), (0, 0, 0, 0))
-    ImageDraw.Draw(img).text((4 - l, 4 - t), text, font=font, fill=color + (255,))
-    img.save(out_path)
+        pixel_text(str(i), 5, WHITE, os.path.join(OUT, "time", f"{i}.png"))
+        pixel_text(str(i), 2, WHITE, os.path.join(OUT, "date", f"{i}.png"))
+        pixel_text(str(i), 2, GREEN, os.path.join(OUT, "steps", f"{i}.png"))
+        pixel_text(str(i), 2, BLUE, os.path.join(OUT, "batt", f"{i}.png"))
+    pixel_text(":", 5, WHITE, os.path.join(OUT, "time", "colon.png"), crop_w=True)
+    pixel_text("/", 2, WHITE, os.path.join(OUT, "date", "slash.png"))
+    pixel_text("%", 2, BLUE, os.path.join(OUT, "batt", "percent.png"))
+    for i, name in enumerate(WEEKDAYS):
+        pixel_text(name, 2, WHITE, os.path.join(OUT, "week", f"{i}.png"))
+    pixel_text("STEPS", 1, GRAY, os.path.join(OUT, "label_steps.png"))
+    pixel_text("BATTERY", 1, GRAY, os.path.join(OUT, "label_batt.png"))
 
 
 def make_icon():
@@ -123,23 +160,27 @@ def make_preview(bg):
     """Preview with sample data baked in, mirroring the widget layout in index.js."""
     img = bg.copy()
 
+    def paste(path, x, y):
+        g = Image.open(os.path.join(OUT, path)).convert("RGBA")
+        img.alpha_composite(g, (x, y))
+        return g.width
+
     def paste_row(parts, y, gap=0):
-        total = sum(Image.open(p).width for p in parts) + gap * (len(parts) - 1)
-        x = (W - total) // 2
+        widths = [Image.open(os.path.join(OUT, p)).width for p in parts]
+        x = (W - (sum(widths) + gap * (len(parts) - 1))) // 2
         for p in parts:
-            g = Image.open(p).convert("RGBA")
-            img.alpha_composite(g, (x, y))
-            x += g.width + gap
-    t = os.path.join(OUT, "time")
-    paste_row([f"{t}/1.png", f"{t}/0.png", f"{t}/colon.png", f"{t}/0.png", f"{t}/8.png"], 108)
-    lbl = Image.open(os.path.join(OUT, "label_steps.png")).convert("RGBA")
-    img.alpha_composite(lbl, ((W - lbl.width) // 2, 258))
-    s = os.path.join(OUT, "steps")
-    paste_row([f"{s}/8.png", f"{s}/4.png", f"{s}/7.png", f"{s}/6.png"], 286)
-    lbl = Image.open(os.path.join(OUT, "label_batt.png")).convert("RGBA")
-    img.alpha_composite(lbl, ((W - lbl.width) // 2, 344))
-    b = os.path.join(OUT, "batt")
-    paste_row([f"{b}/7.png", f"{b}/3.png", f"{b}/percent.png"], 372)
+            x += paste(p, x, y) + gap
+
+    # date row: FRI 08/08 (layout mirrors DATE_X/DATE_Y in index.js)
+    x = DATE_X
+    x += paste("week/4.png", x, DATE_Y) + DATE_GAP
+    for p in ("date/0.png", "date/8.png", "date/slash.png", "date/0.png", "date/8.png"):
+        x += paste(p, x, DATE_Y)
+    paste_row(["time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"], TIME_Y)
+    paste_row(["label_steps.png"], 252)
+    paste_row(["steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"], 280)
+    paste_row(["label_batt.png"], 344)
+    paste_row(["batt/7.png", "batt/3.png", "batt/percent.png"], 372)
     img.convert("RGB").save(os.path.join(OUT, "preview.png"))
 
 
@@ -147,8 +188,27 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     bg = make_background()
     make_fonts()
-    make_label("STEPS", (170, 170, 170), os.path.join(OUT, "label_steps.png"))
-    make_label("BATTERY", (170, 170, 170), os.path.join(OUT, "label_batt.png"))
     make_icon()
+
+    # layout constants shared with watchface/index.js — keep in sync
+    digit_w = Image.open(os.path.join(OUT, "date", "0.png")).width       # 24
+    slash_w = Image.open(os.path.join(OUT, "date", "slash.png")).width   # 24
+    week_w = Image.open(os.path.join(OUT, "week", "0.png")).width        # 64
+    DATE_GAP = 12
+    date_total = week_w + DATE_GAP + 4 * digit_w + slash_w
+    DATE_X = (W - date_total) // 2
+    DATE_Y = 52
+    time_w = 4 * Image.open(os.path.join(OUT, "time", "0.png")).width \
+        + Image.open(os.path.join(OUT, "time", "colon.png")).width
+    TIME_Y = 108
+
     make_preview(bg)
     print("assets written to", OUT)
+    print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
+          f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
+          f"(time digits {Image.open(os.path.join(OUT, 'time', '0.png')).width}w, "
+          f"colon {Image.open(os.path.join(OUT, 'time', 'colon.png')).width}w, "
+          f"labels {Image.open(os.path.join(OUT, 'label_steps.png')).width}x"
+          f"{Image.open(os.path.join(OUT, 'label_steps.png')).height} / "
+          f"{Image.open(os.path.join(OUT, 'label_batt.png')).width}x"
+          f"{Image.open(os.path.join(OUT, 'label_batt.png')).height})")

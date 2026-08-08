@@ -1,42 +1,32 @@
 const SCREEN_W = 390
 
-const timeDigits = [
-  'time/0.png',
-  'time/1.png',
-  'time/2.png',
-  'time/3.png',
-  'time/4.png',
-  'time/5.png',
-  'time/6.png',
-  'time/7.png',
-  'time/8.png',
-  'time/9.png'
+const digitArray = (dir) => [
+  dir + '/0.png',
+  dir + '/1.png',
+  dir + '/2.png',
+  dir + '/3.png',
+  dir + '/4.png',
+  dir + '/5.png',
+  dir + '/6.png',
+  dir + '/7.png',
+  dir + '/8.png',
+  dir + '/9.png'
 ]
 
-const stepDigits = [
-  'steps/0.png',
-  'steps/1.png',
-  'steps/2.png',
-  'steps/3.png',
-  'steps/4.png',
-  'steps/5.png',
-  'steps/6.png',
-  'steps/7.png',
-  'steps/8.png',
-  'steps/9.png'
-]
+const timeDigits = digitArray('time')
+const dateDigits = digitArray('date')
+const stepDigits = digitArray('steps')
+const battDigits = digitArray('batt')
 
-const battDigits = [
-  'batt/0.png',
-  'batt/1.png',
-  'batt/2.png',
-  'batt/3.png',
-  'batt/4.png',
-  'batt/5.png',
-  'batt/6.png',
-  'batt/7.png',
-  'batt/8.png',
-  'batt/9.png'
+// MON-first, matching Zepp OS week numbering (1 = Monday)
+const weekArray = [
+  'week/0.png',
+  'week/1.png',
+  'week/2.png',
+  'week/3.png',
+  'week/4.png',
+  'week/5.png',
+  'week/6.png'
 ]
 
 WatchFace({
@@ -49,10 +39,36 @@ WatchFace({
       src: 'background.png'
     })
 
-    // HH:MM — digits are 60px wide, colon 26px, so 2*60 + 26 + 2*60 = 266 total
+    // WEEK MM/DD row — week images 64px wide + 12px gap, digits 24px, slash 24px
+    hmUI.createWidget(hmUI.widget.IMG_WEEK, {
+      x: 97,
+      y: 52,
+      week_en: weekArray,
+      week_sc: weekArray,
+      week_tc: weekArray
+    })
+
+    hmUI.createWidget(hmUI.widget.IMG_DATE, {
+      month_startX: 173,
+      month_startY: 52,
+      month_zero: 1,
+      month_en_array: dateDigits,
+      month_sc_array: dateDigits,
+      month_tc_array: dateDigits,
+      month_unit_en: 'date/slash.png',
+      month_unit_sc: 'date/slash.png',
+      month_unit_tc: 'date/slash.png',
+      day_follow: 1,
+      day_zero: 1,
+      day_en_array: dateDigits,
+      day_sc_array: dateDigits,
+      day_tc_array: dateDigits
+    })
+
+    // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total
     hmUI.createWidget(hmUI.widget.IMG_TIME, {
       hour_zero: 1,
-      hour_startX: (SCREEN_W - 266) / 2,
+      hour_startX: 57,
       hour_startY: 108,
       hour_array: timeDigits,
       hour_unit_sc: 'time/colon.png',
@@ -64,23 +80,23 @@ WatchFace({
     })
 
     hmUI.createWidget(hmUI.widget.IMG, {
-      x: 155,
-      y: 258,
+      x: 169,
+      y: 252,
       src: 'label_steps.png'
     })
 
     hmUI.createWidget(hmUI.widget.TEXT_IMG, {
       x: 0,
-      y: 286,
+      y: 280,
       w: SCREEN_W,
-      h: 40,
+      h: 44,
       type: hmUI.data_type.STEP,
       font_array: stepDigits,
       align_h: hmUI.align.CENTER_H
     })
 
     hmUI.createWidget(hmUI.widget.IMG, {
-      x: 141,
+      x: 159,
       y: 344,
       src: 'label_batt.png'
     })
@@ -89,7 +105,7 @@ WatchFace({
       x: 0,
       y: 372,
       w: SCREEN_W,
-      h: 40,
+      h: 44,
       type: hmUI.data_type.BATTERY,
       font_array: battDigits,
       unit_sc: 'batt/percent.png',
