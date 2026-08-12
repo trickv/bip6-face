@@ -18,6 +18,10 @@ const dateDigits = digitArray('date')
 const stepDigits = digitArray('steps')
 const battDigits = digitArray('batt')
 
+// lunar day 0..28 (0 = new, ~14 = full), indexed by data_type.MOON's level
+const moonArray = []
+for (let i = 0; i < 29; i++) moonArray.push('moon/' + i + '.png')
+
 // MON-first, matching Zepp OS week numbering (1 = Monday)
 const weekArray = [
   'week/0.png',
@@ -37,6 +41,16 @@ WatchFace({
       x: 0,
       y: 0,
       src: 'background.png'
+    })
+
+    // moon phase disc, top-right corner (MOON_X/MOON_Y in gen_assets.py)
+    hmUI.createWidget(hmUI.widget.IMG_LEVEL, {
+      x: 340,
+      y: 10,
+      image_array: moonArray,
+      image_length: moonArray.length,
+      type: hmUI.data_type.MOON,
+      show_level: hmUI.show_level.ONLY_NORMAL
     })
 
     // WEEK MM/DD row — week images 64px wide + 12px gap, digits 24px, slash 24px

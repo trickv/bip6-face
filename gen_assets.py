@@ -15,10 +15,13 @@ Produces, under assets/bip6/:
   date/slash.png          '/' separator
   week/0.png..6.png       MON..SUN day abbreviations (scale 2)
   steps/0.png..9.png      green digits (scale 2)
-  batt/0.png..9.png       blue digits (scale 2)
-  batt/percent.png        blue '%' unit
+  batt/0.png..9.png       green digits (scale 2; green, not blue, so they
+                          don't blend into the blue gear behind them)
+  batt/percent.png        green '%' unit
   label_steps.png         'STEPS' label
   label_batt.png          'BATTERY' label
+  moon/0.png..28.png      36px moon-phase discs for IMG_LEVEL (data_type.MOON
+                          reports lunar day 0..28; 0 = new, ~14 = full)
 """
 import gzip
 import math
@@ -138,14 +141,44 @@ def make_fonts():
         pixel_text(str(i), 5, WHITE, os.path.join(OUT, "time", f"{i}.png"))
         pixel_text(str(i), 2, WHITE, os.path.join(OUT, "date", f"{i}.png"))
         pixel_text(str(i), 2, GREEN, os.path.join(OUT, "steps", f"{i}.png"))
-        pixel_text(str(i), 2, BLUE, os.path.join(OUT, "batt", f"{i}.png"))
+        pixel_text(str(i), 2, GREEN, os.path.join(OUT, "batt", f"{i}.png"))
     pixel_text(":", 5, WHITE, os.path.join(OUT, "time", "colon.png"), crop_w=True)
     pixel_text("/", 2, WHITE, os.path.join(OUT, "date", "slash.png"))
-    pixel_text("%", 2, BLUE, os.path.join(OUT, "batt", "percent.png"))
+    pixel_text("%", 2, GREEN, os.path.join(OUT, "batt", "percent.png"))
     for i, name in enumerate(WEEKDAYS):
         pixel_text(name, 2, WHITE, os.path.join(OUT, "week", f"{i}.png"))
     pixel_text("STEPS", 1, GRAY, os.path.join(OUT, "label_steps.png"))
     pixel_text("BATTERY", 1, GRAY, os.path.join(OUT, "label_batt.png"))
+
+
+def make_moon():
+    """29 moon-phase discs. Illumination from sphere-shading: sun direction
+    rotates through the synodic cycle, lit side on the right while waxing
+    (northern-hemisphere convention)."""
+    os.makedirs(os.path.join(OUT, "moon"), exist_ok=True)
+    size = 36
+    n = size * SS
+    r = n / 2 - SS  # leave a hair of margin
+    cx = cy = n / 2
+    LIT = (235, 230, 205)
+    DARK = (45, 48, 60)
+    for day in range(29):
+        alpha = 2 * math.pi * day / 29.0  # 0 = new, pi = full
+        sin_a, cos_a = math.sin(alpha), math.cos(alpha)
+        img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+        pix = img.load()
+        for py in range(n):
+            ny = (py - cy) / r
+            for px_ in range(n):
+                nx = (px_ - cx) / r
+                d2 = nx * nx + ny * ny
+                if d2 > 1.0:
+                    continue
+                z = math.sqrt(1.0 - d2)
+                lit = nx * sin_a - z * cos_a > 0
+                pix[px_, py] = (LIT if lit else DARK) + (255,)
+        img = img.resize((size, size), Image.LANCZOS)
+        img.save(os.path.join(OUT, "moon", f"{day}.png"))
 
 
 def make_icon():
@@ -181,6 +214,7 @@ def make_preview(bg):
     paste_row(["steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"], 280)
     paste_row(["label_batt.png"], 344)
     paste_row(["batt/7.png", "batt/3.png", "batt/percent.png"], 372)
+    paste("moon/18.png", MOON_X, MOON_Y)  # waning gibbous sample
     img.convert("RGB").save(os.path.join(OUT, "preview.png"))
 
 
@@ -188,7 +222,11 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     bg = make_background()
     make_fonts()
+    make_moon()
     make_icon()
+
+    # moon disc in the free top-right corner, above the date row
+    MOON_X, MOON_Y = W - 36 - 14, 10
 
     # layout constants shared with watchface/index.js — keep in sync
     digit_w = Image.open(os.path.join(OUT, "date", "0.png")).width       # 24
