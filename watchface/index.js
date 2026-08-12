@@ -43,10 +43,11 @@ WatchFace({
       src: 'background.png'
     })
 
-    // moon phase disc, top-right corner (MOON_X/MOON_Y in gen_assets.py)
+    // moon phase disc, right of the battery % (MOON_X/MOON_Y in
+    // gen_assets.py) — the top-right corner is clipped by the rounded screen
     hmUI.createWidget(hmUI.widget.IMG_LEVEL, {
-      x: 340,
-      y: 10,
+      x: 300,
+      y: 376,
       image_array: moonArray,
       image_length: moonArray.length,
       type: hmUI.data_type.MOON,

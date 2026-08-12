@@ -14,7 +14,7 @@ Produces, under assets/bip6/:
   date/0.png..9.png       white digits for MM/DD (scale 2)
   date/slash.png          '/' separator
   week/0.png..6.png       MON..SUN day abbreviations (scale 2)
-  steps/0.png..9.png      green digits (scale 2)
+  steps/0.png..9.png      red digits (scale 2)
   batt/0.png..9.png       green digits (scale 2; green, not blue, so they
                           don't blend into the blue gear behind them)
   batt/percent.png        green '%' unit
@@ -140,7 +140,7 @@ def make_fonts():
     for i in range(10):
         pixel_text(str(i), 5, WHITE, os.path.join(OUT, "time", f"{i}.png"))
         pixel_text(str(i), 2, WHITE, os.path.join(OUT, "date", f"{i}.png"))
-        pixel_text(str(i), 2, GREEN, os.path.join(OUT, "steps", f"{i}.png"))
+        pixel_text(str(i), 2, RED, os.path.join(OUT, "steps", f"{i}.png"))
         pixel_text(str(i), 2, GREEN, os.path.join(OUT, "batt", f"{i}.png"))
     pixel_text(":", 5, WHITE, os.path.join(OUT, "time", "colon.png"), crop_w=True)
     pixel_text("/", 2, WHITE, os.path.join(OUT, "date", "slash.png"))
@@ -225,8 +225,10 @@ if __name__ == "__main__":
     make_moon()
     make_icon()
 
-    # moon disc in the free top-right corner, above the date row
-    MOON_X, MOON_Y = W - 36 - 14, 10
+    # moon disc right of the battery % — the top-right corner gets clipped
+    # by the display's rounded physical corners. Battery digits row is
+    # y=372 h=44, so 36px disc centers at +4.
+    MOON_X, MOON_Y = 300, 376
 
     # layout constants shared with watchface/index.js — keep in sync
     digit_w = Image.open(os.path.join(OUT, "date", "0.png")).width       # 24
