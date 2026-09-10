@@ -80,10 +80,12 @@ WatchFace({
       day_tc_array: dateDigits
     })
 
-    // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total
+    // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total.
+    // Small seconds (the 24x44 white date digits) sit to the right,
+    // bottom-aligned with the big digits (y 108 + 110 - 44 = 174).
     hmUI.createWidget(hmUI.widget.IMG_TIME, {
       hour_zero: 1,
-      hour_startX: 57,
+      hour_startX: 45,
       hour_startY: 108,
       hour_array: timeDigits,
       hour_unit_sc: 'time/colon.png',
@@ -91,7 +93,11 @@ WatchFace({
       hour_unit_en: 'time/colon.png',
       minute_follow: 1,
       minute_zero: 1,
-      minute_array: timeDigits
+      minute_array: timeDigits,
+      second_zero: 1,
+      second_startX: 326,
+      second_startY: 174,
+      second_array: dateDigits
     })
 
     hmUI.createWidget(hmUI.widget.IMG, {

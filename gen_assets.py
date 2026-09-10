@@ -11,7 +11,7 @@ Produces, under assets/bip6/:
   preview.png             390x450 preview with sample data baked in
   time/0.png..9.png       big white digits for HH:MM (scale 5)
   time/colon.png          colon separator
-  date/0.png..9.png       white digits for MM/DD (scale 2)
+  date/0.png..9.png       white digits for MM/DD and the small seconds (scale 2)
   date/slash.png          '/' separator
   week/0.png..6.png       MON..SUN day abbreviations (scale 2)
   steps/0.png..9.png      red digits (scale 2)
@@ -209,7 +209,12 @@ def make_preview(bg):
     x += paste("week/4.png", x, DATE_Y) + DATE_GAP
     for p in ("date/0.png", "date/8.png", "date/slash.png", "date/0.png", "date/8.png"):
         x += paste(p, x, DATE_Y)
-    paste_row(["time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"], TIME_Y)
+    # time 10:08 + small 42s, layout mirrors TIME_X/SEC_X in index.js
+    x = TIME_X
+    for p in ("time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"):
+        x += paste(p, x, TIME_Y)
+    paste("date/4.png", SEC_X, SEC_Y)
+    paste("date/2.png", SEC_X + 24, SEC_Y)
     paste_row(["label_steps.png"], 252)
     paste_row(["steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"], 280)
     paste_row(["label_batt.png"], 344)
@@ -240,12 +245,16 @@ if __name__ == "__main__":
     DATE_Y = 52
     time_w = 4 * Image.open(os.path.join(OUT, "time", "0.png")).width \
         + Image.open(os.path.join(OUT, "time", "colon.png")).width
+    TIME_X = 45   # nudged left of center so the seconds fit on the right
     TIME_Y = 108
+    SEC_X = TIME_X + time_w + 6
+    SEC_Y = TIME_Y + 110 - 44  # bottom-aligned with the big digits
 
     make_preview(bg)
     print("assets written to", OUT)
     print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
-          f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
+          f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={TIME_X} TIME_Y={TIME_Y} "
+          f"SEC_X={SEC_X} SEC_Y={SEC_Y} "
           f"(time digits {Image.open(os.path.join(OUT, 'time', '0.png')).width}w, "
           f"colon {Image.open(os.path.join(OUT, 'time', 'colon.png')).width}w, "
           f"labels {Image.open(os.path.join(OUT, 'label_steps.png')).width}x"
