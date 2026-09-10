@@ -11,7 +11,10 @@ Produces, under assets/bip6/:
   preview.png             390x450 preview with sample data baked in
   time/0.png..9.png       big white digits for HH:MM (scale 5)
   time/colon.png          colon separator
-  date/0.png..9.png       white digits for MM/DD and the small seconds (scale 2)
+  date/0.png..9.png       white digits for MM/DD and the seconds hub (scale 2)
+  gear.png                212px green gear, TIME_POINTER second-hand sprite:
+                          one revolution per minute, white marker tooth
+                          authored pointing up = start of minute
   date/slash.png          '/' separator
   week/0.png..6.png       MON..SUN day abbreviations (scale 2)
   steps/0.png..9.png      red digits (scale 2)
@@ -87,8 +90,10 @@ def dim(color, f):
     return tuple(int(c * f) for c in color)
 
 
-def gear_layer(size, cx, cy, outer_r, teeth, color, hole_r, angle_offset=0.0):
-    """Draw one flat gear (glxgears style: toothed ring with a big hole) on a new RGBA layer."""
+def gear_layer(size, cx, cy, outer_r, teeth, color, hole_r, angle_offset=0.0,
+               marker_color=None):
+    """Draw one flat gear (glxgears style: toothed ring with a big hole) on a new RGBA layer.
+    marker_color, if given, highlights tooth 0 as an index marker."""
     layer = Image.new("RGBA", (size[0] * SS, size[1] * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     cx, cy, outer_r, hole_r = cx * SS, cy * SS, outer_r * SS, hole_r * SS
@@ -96,12 +101,19 @@ def gear_layer(size, cx, cy, outer_r, teeth, color, hole_r, angle_offset=0.0):
     pts = []
     step = 2 * math.pi / teeth
     # each tooth: rise on outer radius for ~40% of the pitch, valley on root radius
+    tooth_fracs = ((0.00, root_r), (0.12, outer_r), (0.38, outer_r), (0.50, root_r))
     for i in range(teeth):
         a0 = angle_offset + i * step
-        for frac, r in ((0.00, root_r), (0.12, outer_r), (0.38, outer_r), (0.50, root_r)):
+        for frac, r in tooth_fracs:
             a = a0 + frac * step
             pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
     d.polygon(pts, fill=color + (255,))
+    if marker_color:
+        # repaint tooth 0 (flank-tip-flank quad, closed via a root-circle arc)
+        quad = [(cx + r * math.cos(angle_offset + frac * step),
+                 cy + r * math.sin(angle_offset + frac * step))
+                for frac, r in tooth_fracs]
+        d.polygon(quad, fill=marker_color + (255,))
     # punch the center hole (raw pixel write, no blending -> true transparency)
     d.ellipse([cx - hole_r, cy - hole_r, cx + hole_r, cy + hole_r], fill=(0, 0, 0, 0))
     # subtle inner rim shading for a hint of depth
@@ -117,8 +129,7 @@ def make_background():
     for args in (
         # big red gear, upper left, partly off-screen
         dict(cx=105, cy=140, outer_r=150, teeth=14, color=dim(RED, f), hole_r=62, angle_offset=0.1),
-        # green gear meshing to its right
-        dict(cx=320, cy=230, outer_r=105, teeth=10, color=dim(GREEN, f), hole_r=44, angle_offset=0.35),
+        # (the green gear is a separate rotating sprite now — see make_gear)
         # small blue gear, lower left
         dict(cx=95, cy=375, outer_r=90, teeth=10, color=dim(BLUE, f), hole_r=38, angle_offset=0.55),
     ):
@@ -181,6 +192,25 @@ def make_moon():
         img.save(os.path.join(OUT, "moon", f"{day}.png"))
 
 
+GEAR_SIZE = 212           # sprite canvas, 2 * outer_r + 2
+GEAR_CX, GEAR_CY = 320, 230  # on-screen rotation center (where the bg gear was)
+
+
+def make_gear():
+    """The green gear as a TIME_POINTER second-hand sprite: one full turn per
+    minute. Authored with the white marker tooth pointing straight up, which
+    is how pointer images are drawn at second 0."""
+    c = GEAR_SIZE // 2
+    teeth = 10
+    step = 2 * math.pi / teeth
+    # tooth 0's tip (fracs 0.12..0.38, center 0.25) points up (-pi/2)
+    angle = -math.pi / 2 - 0.25 * step
+    img = gear_layer((GEAR_SIZE, GEAR_SIZE), c, c, c - 1, teeth,
+                     dim(GREEN, 0.62), 44, angle_offset=angle,
+                     marker_color=(235, 235, 235))
+    img.save(os.path.join(OUT, "gear.png"))
+
+
 def make_icon():
     size = (192, 192)
     img = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -209,12 +239,14 @@ def make_preview(bg):
     x += paste("week/4.png", x, DATE_Y) + DATE_GAP
     for p in ("date/0.png", "date/8.png", "date/slash.png", "date/0.png", "date/8.png"):
         x += paste(p, x, DATE_Y)
-    # time 10:08 + small 42s, layout mirrors TIME_X/SEC_X in index.js
-    x = TIME_X
-    for p in ("time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"):
-        x += paste(p, x, TIME_Y)
-    paste("date/4.png", SEC_X, SEC_Y)
-    paste("date/2.png", SEC_X + 24, SEC_Y)
+    # green second-gear at sample second 42: 42 * 6 = 252° clockwise
+    # (PIL rotates counterclockwise for positive angles, hence the minus)
+    gear = Image.open(os.path.join(OUT, "gear.png")).rotate(-252, resample=Image.BICUBIC)
+    img.alpha_composite(gear, (GEAR_CX - GEAR_SIZE // 2, GEAR_CY - GEAR_SIZE // 2))
+    # seconds digits in the gear hub (SEC_X/SEC_Y in index.js)
+    paste("date/4.png", GEAR_CX - 24, GEAR_CY - 22)
+    paste("date/2.png", GEAR_CX, GEAR_CY - 22)
+    paste_row(["time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"], TIME_Y)
     paste_row(["label_steps.png"], 252)
     paste_row(["steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"], 280)
     paste_row(["label_batt.png"], 344)
@@ -228,6 +260,7 @@ if __name__ == "__main__":
     bg = make_background()
     make_fonts()
     make_moon()
+    make_gear()
     make_icon()
 
     # moon disc right of the battery % — the top-right corner gets clipped
@@ -245,16 +278,14 @@ if __name__ == "__main__":
     DATE_Y = 52
     time_w = 4 * Image.open(os.path.join(OUT, "time", "0.png")).width \
         + Image.open(os.path.join(OUT, "time", "colon.png")).width
-    TIME_X = 45   # nudged left of center so the seconds fit on the right
     TIME_Y = 108
-    SEC_X = TIME_X + time_w + 6
-    SEC_Y = TIME_Y + 110 - 44  # bottom-aligned with the big digits
 
     make_preview(bg)
     print("assets written to", OUT)
     print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
-          f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={TIME_X} TIME_Y={TIME_Y} "
-          f"SEC_X={SEC_X} SEC_Y={SEC_Y} "
+          f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
+          f"GEAR_CENTER=({GEAR_CX},{GEAR_CY}) GEAR_POS={GEAR_SIZE // 2} "
+          f"SEC_X={GEAR_CX - 24} SEC_Y={GEAR_CY - 22} "
           f"(time digits {Image.open(os.path.join(OUT, 'time', '0.png')).width}w, "
           f"colon {Image.open(os.path.join(OUT, 'time', 'colon.png')).width}w, "
           f"labels {Image.open(os.path.join(OUT, 'label_steps.png')).width}x"

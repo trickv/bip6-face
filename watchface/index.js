@@ -43,6 +43,18 @@ WatchFace({
       src: 'background.png'
     })
 
+    // the green gear is the "second hand": the OS rotates it about its
+    // center 6° per second, one revolution per minute. The sprite is
+    // authored with its white marker tooth pointing up, which is the
+    // second-0 orientation — so the marker hits 12 o'clock at :00.
+    hmUI.createWidget(hmUI.widget.TIME_POINTER, {
+      second_centerX: 320,
+      second_centerY: 230,
+      second_posX: 106,
+      second_posY: 106,
+      second_path: 'gear.png'
+    })
+
     // moon phase disc, right of the battery % (MOON_X/MOON_Y in
     // gen_assets.py) — the top-right corner is clipped by the rounded screen
     hmUI.createWidget(hmUI.widget.IMG_LEVEL, {
@@ -81,11 +93,11 @@ WatchFace({
     })
 
     // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total.
-    // Small seconds (the 24x44 white date digits) sit to the right,
-    // bottom-aligned with the big digits (y 108 + 110 - 44 = 174).
+    // Small seconds (the 24x44 white date digits) sit in the gear's hub —
+    // the hub is the rotation pivot, so it stays put under them.
     hmUI.createWidget(hmUI.widget.IMG_TIME, {
       hour_zero: 1,
-      hour_startX: 45,
+      hour_startX: 57,
       hour_startY: 108,
       hour_array: timeDigits,
       hour_unit_sc: 'time/colon.png',
@@ -95,8 +107,8 @@ WatchFace({
       minute_zero: 1,
       minute_array: timeDigits,
       second_zero: 1,
-      second_startX: 326,
-      second_startY: 174,
+      second_startX: 296,
+      second_startY: 208,
       second_array: dateDigits
     })
 
