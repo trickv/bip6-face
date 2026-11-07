@@ -377,7 +377,6 @@ def make_preview_sun(bg, time3_x, sec2_x, sec2_y):
 V9N_INK = (26, 26, 26)
 V9N_GRAY = (102, 102, 102)
 V9N_BORDER = (186, 186, 189)  # rgba(26,26,26,0.3) composited on white
-V9N_HAIRLINE = (229, 229, 231)
 V9N_SANS_BOLD = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 V9N_SANS = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
 
@@ -395,21 +394,6 @@ def _sans_img(text, size, color, font_path=V9N_SANS_BOLD, fixed_w=None):
     ImageDraw.Draw(img).text((round((cw_ - w) / 2) if fixed_w else 0, 0),
                              text, font=font, fill=color + (255,))
     return img
-
-
-def _grad_fill(img, c1=(26, 26, 26), c2=(74, 74, 74)):
-    """Refill an RGBA sprite's alpha with the v9n 135-degree gradient."""
-    w, h = img.size
-    grad = Image.new("RGBA", (w, h))
-    px = grad.load()
-    for y in range(h):
-        ty = y / max(1, h - 1)
-        for x in range(w):
-            t = (x / max(1, w - 1) + ty) / 2
-            px[x, y] = tuple(int(a + (b - a) * t) for a, b in zip(c1, c2)) + (255,)
-    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    out.paste(grad, (0, 0), img.split()[3])
-    return out
 
 
 def make_fonts_v9n():

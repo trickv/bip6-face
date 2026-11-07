@@ -12,7 +12,7 @@
     "vender": "trickv",
     "description": "glxgears-inspired hello world watchface"
   },
-  "permissions": ["device:os.accelerometer"],
+  "permissions": [],
   "runtime": {
     "apiVersion": {
       "compatible": "1.0.0",
@@ -33,9 +33,18 @@
         }
       },
       "platforms": [
-        { "name": "bip6", "deviceSource": 9765120 },
-        { "name": "bip6-2", "deviceSource": 9765121 },
-        { "name": "bip6-3", "deviceSource": 10158337 }
+        {
+          "name": "bip6",
+          "deviceSource": 9765120
+        },
+        {
+          "name": "bip6-2",
+          "deviceSource": 9765121
+        },
+        {
+          "name": "bip6-3",
+          "deviceSource": 10158337
+        }
       ],
       "designWidth": 390
     }

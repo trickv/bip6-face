@@ -1,0 +1,44 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 25080703,
+    "appName": "xeyes",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "1.0.0"
+    },
+    "icon": "icon.png",
+    "vender": "trickv",
+    "description": "xeyes for the wrist: googly eyes that follow gravity"
+  },
+  "permissions": ["device:os.accelerometer"],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "4.0",
+      "target": "4.0",
+      "minVersion": "4.0"
+    }
+  },
+  "targets": {
+    "common": {
+      "module": {
+        "page": {
+          "pages": ["page/index"]
+        }
+      },
+      "platforms": [
+        {
+          "st": "s",
+          "dw": 390
+        }
+      ]
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "xeyes"
+    }
+  },
+  "defaultLanguage": "en-US"
+}

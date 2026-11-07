@@ -1,16 +1,8 @@
-// '@zos/sensor' is not officially part of the watchface API. A top-level
-// import that fails kills the whole face (verified: black screen), so load
-// it defensively through the runtime's require; if it's missing, the
-// googly eye degrades to a minute hand.
-// The 1.x watchface runtime has no module loader ('__$$RQR$$__' is not
-// defined), and declaring apiVersion 2.0+ removes the hm* globals this
-// face is built on — so '@zos/sensor' is unreachable here and the googly
-// eye runs as a minute hand. Kept guarded in case a future OS adds it.
-let Accelerometer = null
-try {
-  Accelerometer = __$$RQR$$__('@zos/sensor').Accelerometer
-} catch (e) {}
-
+// NOTE: watchfaces are stuck on the 1.x hm* API, which has no module
+// loader and no motion sensors; apiVersion 2.0+ removes the hm* globals
+// entirely (verified on-device — see the probe-api2 branch). So no
+// accelerometer here: the right xeye is a minute hand, and the true
+// gravity-driven googly eyes live in the xeyes-app/ Mini Program.
 const SCREEN_W = 390
 
 const digitArray = (dir) => [
@@ -216,17 +208,12 @@ const PUPIL_ORBIT = 38 // max pupil-center offset from the eye center
 const PUPIL_C = 21 // pupil_dot.png top-left -> center
 const SEC_DIG_W = 12 // secs/ digit size
 const SEC_DIG_H = 22
-// accelerometer reading (cm/s^2) at which the googly pupil pegs its orbit:
-// ~600 is a ~37-degree tilt
-const GOOGLY_FULL = 600
 
 let secPupil = null
 let secDigit1 = null
 let secDigit2 = null
-let googlyPupil = null
+let minutePupil = null
 let satTimer = null
-let accel = null
-let accelOk = false
 
 function placePupil(w, cx, cy) {
   w.setProperty(hmUI.prop.MORE, { x: cx - PUPIL_C, y: cy - PUPIL_C })
@@ -250,51 +237,17 @@ function tickSat() {
     src: 'secs/' + (s % 10) + '.png'
   })
 
-  // right eye: googly — the pupil rolls toward gravity. At rest the
-  // accelerometer reads the reaction force (opposite gravity; x right,
-  // y toward 12 o'clock), so screen-down is -y and gravity-x is -x.
-  if (accelOk) {
-    let ox = 0
-    let oy = 0
-    try {
-      const v = accel.getCurrent()
-      ox = (-v.x * PUPIL_ORBIT) / GOOGLY_FULL
-      oy = (v.y * PUPIL_ORBIT) / GOOGLY_FULL
-    } catch (e) {}
-    const m = Math.sqrt(ox * ox + oy * oy)
-    if (m > PUPIL_ORBIT) {
-      ox = (ox * PUPIL_ORBIT) / m
-      oy = (oy * PUPIL_ORBIT) / m
-    }
-    placePupil(googlyPupil, EYE_R_X + Math.round(ox), EYE_R_Y + Math.round(oy))
-  } else {
-    // no accelerometer: fall back to a minute hand, like before
-    const am = (timeSensor.minute * 6 * Math.PI) / 180
-    placePupil(
-      googlyPupil,
-      EYE_R_X + Math.round(PUPIL_ORBIT * Math.sin(am)),
-      EYE_R_Y - Math.round(PUPIL_ORBIT * Math.cos(am))
-    )
-  }
+  // right eye: a minute hand in disguise, one revolution per hour
+  const am = (timeSensor.minute * 6 * Math.PI) / 180
+  placePupil(
+    minutePupil,
+    EYE_R_X + Math.round(PUPIL_ORBIT * Math.sin(am)),
+    EYE_R_Y - Math.round(PUPIL_ORBIT * Math.cos(am))
+  )
 }
 
 function startSat() {
   if (satTimer !== null) return
-  if (accel === null && Accelerometer !== null) {
-    try {
-      accel = new Accelerometer()
-      accelOk = true
-    } catch (e) {
-      accelOk = false
-    }
-  }
-  if (accelOk) {
-    try {
-      accel.start()
-    } catch (e) {
-      accelOk = false
-    }
-  }
   try {
     tickSat()
     satTimer = timer.createTimer(250, 250, tickSat)
@@ -305,11 +258,6 @@ function stopSat() {
   if (satTimer !== null) {
     timer.stopTimer(satTimer)
     satTimer = null
-  }
-  if (accelOk) {
-    try {
-      accel.stop()
-    } catch (e) {}
   }
 }
 
@@ -331,7 +279,7 @@ function buildSaturday() {
     y: EYE_L_Y - SEC_DIG_H / 2,
     src: 'secs/0.png'
   })
-  googlyPupil = cw(hmUI.widget.IMG, {
+  minutePupil = cw(hmUI.widget.IMG, {
     x: EYE_R_X - PUPIL_C,
     y: EYE_R_Y - PUPIL_C,
     src: 'pupil_dot.png'
