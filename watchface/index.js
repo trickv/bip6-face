@@ -1,3 +1,5 @@
+import { Accelerometer } from '@zos/sensor'
+
 const SCREEN_W = 390
 
 const digitArray = (dir) => [
@@ -180,22 +182,132 @@ function buildWeekday() {
   })
 }
 
+// xeyes geometry (from gen_assets.py)
+const EYE_L_X = 110
+const EYE_L_Y = 195
+const EYE_R_X = 280
+const EYE_R_Y = 195
+const PUPIL_ORBIT = 38 // max pupil-center offset from the eye center
+const PUPIL_C = 21 // pupil_dot.png top-left -> center
+const SEC_DIG_W = 12 // secs/ digit size
+const SEC_DIG_H = 22
+// accelerometer reading (cm/s^2) at which the googly pupil pegs its orbit:
+// ~600 is a ~37-degree tilt
+const GOOGLY_FULL = 600
+
+let secPupil = null
+let secDigit1 = null
+let secDigit2 = null
+let googlyPupil = null
+let satTimer = null
+let accel = null
+let accelOk = false
+
+function placePupil(w, cx, cy) {
+  w.setProperty(hmUI.prop.MORE, { x: cx - PUPIL_C, y: cy - PUPIL_C })
+}
+
+function tickSat() {
+  // left eye: pupil orbits with the seconds, number riding inside it
+  const s = timeSensor.second
+  const a = (s * 6 * Math.PI) / 180
+  const lx = EYE_L_X + Math.round(PUPIL_ORBIT * Math.sin(a))
+  const ly = EYE_L_Y - Math.round(PUPIL_ORBIT * Math.cos(a))
+  placePupil(secPupil, lx, ly)
+  secDigit1.setProperty(hmUI.prop.MORE, {
+    x: lx - SEC_DIG_W,
+    y: ly - SEC_DIG_H / 2,
+    src: 'secs/' + Math.floor(s / 10) + '.png'
+  })
+  secDigit2.setProperty(hmUI.prop.MORE, {
+    x: lx,
+    y: ly - SEC_DIG_H / 2,
+    src: 'secs/' + (s % 10) + '.png'
+  })
+
+  // right eye: googly — the pupil rolls toward gravity. At rest the
+  // accelerometer reads the reaction force (opposite gravity; x right,
+  // y toward 12 o'clock), so screen-down is -y and gravity-x is -x.
+  if (accelOk) {
+    let ox = 0
+    let oy = 0
+    try {
+      const v = accel.getCurrent()
+      ox = (-v.x * PUPIL_ORBIT) / GOOGLY_FULL
+      oy = (v.y * PUPIL_ORBIT) / GOOGLY_FULL
+    } catch (e) {}
+    const m = Math.sqrt(ox * ox + oy * oy)
+    if (m > PUPIL_ORBIT) {
+      ox = (ox * PUPIL_ORBIT) / m
+      oy = (oy * PUPIL_ORBIT) / m
+    }
+    placePupil(googlyPupil, EYE_R_X + Math.round(ox), EYE_R_Y + Math.round(oy))
+  } else {
+    // no accelerometer: fall back to a minute hand, like before
+    const am = (timeSensor.minute * 6 * Math.PI) / 180
+    placePupil(
+      googlyPupil,
+      EYE_R_X + Math.round(PUPIL_ORBIT * Math.sin(am)),
+      EYE_R_Y - Math.round(PUPIL_ORBIT * Math.cos(am))
+    )
+  }
+}
+
+function startSat() {
+  if (satTimer !== null) return
+  if (accel === null) {
+    try {
+      accel = new Accelerometer()
+      accelOk = true
+    } catch (e) {
+      accelOk = false
+    }
+  }
+  if (accelOk) {
+    try {
+      accel.start()
+    } catch (e) {
+      accelOk = false
+    }
+  }
+  tickSat()
+  satTimer = timer.createTimer(250, 250, tickSat)
+}
+
+function stopSat() {
+  if (satTimer !== null) {
+    timer.stopTimer(satTimer)
+    satTimer = null
+  }
+  if (accelOk) {
+    try {
+      accel.stop()
+    } catch (e) {}
+  }
+}
+
 function buildSaturday() {
-  // xeyes. The pupils are pointer hands orbiting the eye centers
-  // (sprite pivot from gen_assets.py PUPIL_POS): left eye sweeps once
-  // per minute (seconds), right eye once per hour (minutes).
+  // xeyes, live edition: a 4 Hz timer slides the pupil sprites around.
   cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg_sat.png' })
-  cw(hmUI.widget.TIME_POINTER, {
-    second_centerX: 110,
-    second_centerY: 195,
-    second_posX: 21,
-    second_posY: 59,
-    second_path: 'pupil.png',
-    minute_centerX: 280,
-    minute_centerY: 195,
-    minute_posX: 21,
-    minute_posY: 59,
-    minute_path: 'pupil.png'
+  secPupil = cw(hmUI.widget.IMG, {
+    x: EYE_L_X - PUPIL_C,
+    y: EYE_L_Y - PUPIL_C,
+    src: 'pupil_dot.png'
+  })
+  secDigit1 = cw(hmUI.widget.IMG, {
+    x: EYE_L_X - SEC_DIG_W,
+    y: EYE_L_Y - SEC_DIG_H / 2,
+    src: 'secs/0.png'
+  })
+  secDigit2 = cw(hmUI.widget.IMG, {
+    x: EYE_L_X,
+    y: EYE_L_Y - SEC_DIG_H / 2,
+    src: 'secs/0.png'
+  })
+  googlyPupil = cw(hmUI.widget.IMG, {
+    x: EYE_R_X - PUPIL_C,
+    y: EYE_R_Y - PUPIL_C,
+    src: 'pupil_dot.png'
   })
   dateRow(52)
   cw(hmUI.widget.IMG_TIME, {
@@ -211,6 +323,7 @@ function buildSaturday() {
     minute_array: timeDigits
   })
   bottomRow()
+  startSat()
 }
 
 function buildSunday() {
@@ -246,19 +359,28 @@ WatchFace({
   build() {
     timeSensor = hmSensor.createSensor(hmSensor.id.TIME)
     render()
-    // re-check the day whenever the face wakes; rebuild on a day-class change
+    // re-check the day whenever the face wakes; rebuild on a day-class
+    // change, and run the Saturday timer only while the screen is on
     hmUI.createWidget(hmUI.widget.WIDGET_DELEGATE, {
       resume_call: function () {
         if (dayMode() !== mode) {
+          stopSat()
           widgets.forEach(function (w) {
             hmUI.deleteWidget(w)
           })
           widgets = []
           render()
+        } else if (mode === 'sat') {
+          startSat()
         }
+      },
+      pause_call: function () {
+        stopSat()
       }
     })
   },
 
-  onDestroy() {}
+  onDestroy() {
+    stopSat()
+  }
 })

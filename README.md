@@ -7,8 +7,9 @@ day of week:
 - **Mon–Fri: glxgears** — the green gear is the second hand (one revolution
   per minute, white marker tooth at 12 o'clock on the minute), with seconds
   in its hub, plus date, steps, battery %, and moon phase.
-- **Saturday: xeyes** — the pupils are pointer hands: left eye orbits once
-  per minute (seconds), right eye once per hour (minutes).
+- **Saturday: xeyes** — the left pupil orbits with the seconds and carries
+  the seconds number inside it; the right pupil is a googly eye that rolls
+  toward gravity (accelerometer).
 - **Sunday: cowsay** — the cow says the time.
 
 ## Layout

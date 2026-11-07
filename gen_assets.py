@@ -157,10 +157,11 @@ def make_background():
 
 
 def make_fonts():
-    for sub in ("time", "time3", "date", "week", "steps", "batt"):
+    for sub in ("time", "time3", "date", "week", "steps", "batt", "secs"):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
     for i in range(10):
         pixel_text(str(i), 5, WHITE, os.path.join(OUT, "time", f"{i}.png"))
+        pixel_text(str(i), 1, WHITE, os.path.join(OUT, "secs", f"{i}.png"))
         pixel_text(str(i), 3, WHITE, os.path.join(OUT, "time3", f"{i}.png"))
         pixel_text(str(i), 2, WHITE, os.path.join(OUT, "date", f"{i}.png"))
         pixel_text(str(i), 2, RED, os.path.join(OUT, "steps", f"{i}.png"))
@@ -225,8 +226,9 @@ def make_gear():
 
 
 # ---- weekend faces ---------------------------------------------------------
-# Saturday: xeyes. Two eyes; the pupils are TIME_POINTER hands orbiting the
-# eye centers (left eye = seconds, 1 rev/min; right eye = minutes, 1 rev/hr).
+# Saturday: xeyes. index.js moves the pupil sprites with setProperty on a
+# timer: the left pupil orbits with the seconds (number riding inside it),
+# the right pupil rolls toward gravity from the accelerometer.
 EYE_L = (110, 195)
 EYE_R = (280, 195)
 EYE_RX, EYE_RY = 72, 95
@@ -250,19 +252,18 @@ def make_bg_sat():
     return bg
 
 
-def make_pupil():
-    """Pointer sprite: dark pupil disc at the top, pivot PUPIL_ORBIT below
-    its center, so the OS swings it around the eye center like xeyes."""
+def make_pupil_dot():
+    """Plain pupil disc sprite; index.js places it by its top-left corner,
+    so the center offset is half the sprite size."""
     pad = 2
     w = 2 * (PUPIL_R + pad)
-    h = PUPIL_R + pad + PUPIL_ORBIT + 4
-    layer = Image.new("RGBA", (w * SS, h * SS), (0, 0, 0, 0))
+    layer = Image.new("RGBA", (w * SS, w * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    c = PUPIL_R + pad
-    d.ellipse([(c - PUPIL_R) * SS, (c - PUPIL_R) * SS,
-               (c + PUPIL_R) * SS, (c + PUPIL_R) * SS], fill=(22, 22, 28, 255))
-    layer.resize((w, h), Image.LANCZOS).save(os.path.join(OUT, "pupil.png"))
-    return c, c + PUPIL_ORBIT  # pivot for second/minute_posX/posY
+    c = (PUPIL_R + pad) * SS
+    d.ellipse([c - PUPIL_R * SS, c - PUPIL_R * SS,
+               c + PUPIL_R * SS, c + PUPIL_R * SS], fill=(22, 22, 28, 255))
+    layer.resize((w, w), Image.LANCZOS).save(os.path.join(OUT, "pupil_dot.png"))
+    return w // 2  # top-left -> center offset for index.js
 
 
 # Sunday: cowsay, time in the speech bubble. Everything but the live digits
@@ -327,14 +328,19 @@ def date_row_preview(img, week_png, y):
 def make_preview_sat(bg):
     img = bg.copy()
     date_row_preview(img, "week/5.png", DATE_Y)
-    # pupils at 10:08:42 — seconds 42 → 252°, minutes 8 → 48°
     d = ImageDraw.Draw(img)
-    for (cx, cy), deg in ((EYE_L, 252), (EYE_R, 48)):
-        a = math.radians(deg)
-        px_ = cx + PUPIL_ORBIT * math.sin(a)
-        py = cy - PUPIL_ORBIT * math.cos(a)
+    # left pupil at second 42 (252°) with the number riding inside;
+    # right pupil rolled toward gravity, down-left
+    a = math.radians(252)
+    lx = EYE_L[0] + PUPIL_ORBIT * math.sin(a)
+    ly = EYE_L[1] - PUPIL_ORBIT * math.cos(a)
+    rx = EYE_R[0] - PUPIL_ORBIT * 0.60
+    ry = EYE_R[1] + PUPIL_ORBIT * 0.75
+    for px_, py in ((lx, ly), (rx, ry)):
         d.ellipse([px_ - PUPIL_R, py - PUPIL_R, px_ + PUPIL_R, py + PUPIL_R],
                   fill=(22, 22, 28, 255))
+    paste_on(img, "secs/4.png", int(lx) - 12, int(ly) - 11)
+    paste_on(img, "secs/2.png", int(lx), int(ly) - 11)
     x = 57
     for p in ("time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"):
         x += paste_on(img, p, x, 296)
@@ -425,15 +431,17 @@ if __name__ == "__main__":
 
     # weekend faces
     bg_sat = make_bg_sat()
-    pupil_px, pupil_py = make_pupil()
+    pupil_c = make_pupil_dot()
     bg_sun, TIME3_X = make_bg_sun()
     make_preview_sat(bg_sat)
     make_preview_sun(bg_sun, TIME3_X)
 
     print("assets written to", OUT)
+    secd = Image.open(os.path.join(OUT, "secs", "0.png"))
     print(f"weekend constants: EYE_L={EYE_L} EYE_R={EYE_R} "
-          f"PUPIL_POS=({pupil_px},{pupil_py}) TIME3_X={TIME3_X} TIME3_Y={TIME3_Y} "
-          f"BOTTOM_Y={BOTTOM_Y}")
+          f"PUPIL_ORBIT={PUPIL_ORBIT} PUPIL_C={pupil_c} "
+          f"SEC_DIG={secd.width}x{secd.height} "
+          f"TIME3_X={TIME3_X} TIME3_Y={TIME3_Y} BOTTOM_Y={BOTTOM_Y}")
     print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
           f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
           f"GEAR_CENTER=({GEAR_CX},{GEAR_CY}) GEAR_POS={GEAR_SIZE // 2} "
