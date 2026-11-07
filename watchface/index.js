@@ -30,6 +30,19 @@ const time3Digits = digitArray('time3')
 const dateDigits = digitArray('date')
 const stepDigits = digitArray('steps')
 const battDigits = digitArray('batt')
+// Monday v9n face (sans sprites)
+const timeVDigits = digitArray('time_v')
+const dateVDigits = digitArray('date_v')
+const numVDigits = digitArray('num_v')
+const weekVArray = [
+  'week_v/0.png',
+  'week_v/1.png',
+  'week_v/2.png',
+  'week_v/3.png',
+  'week_v/4.png',
+  'week_v/5.png',
+  'week_v/6.png'
+]
 
 // lunar day 0..28 (0 = new, ~14 = full), indexed by data_type.MOON's level
 const moonArray = []
@@ -61,6 +74,7 @@ function cw(type, cfg) {
 
 function dayMode() {
   // time sensor week: 1 = Monday .. 7 = Sunday
+  if (timeSensor.week === 1) return 'mon'
   if (timeSensor.week === 6) return 'sat'
   if (timeSensor.week === 7) return 'sun'
   return 'weekday'
@@ -345,7 +359,7 @@ function buildSunday() {
   dateRow(8)
   cw(hmUI.widget.IMG_TIME, {
     hour_zero: 1,
-    hour_startX: 112,
+    hour_startX: 77,
     hour_startY: 100,
     hour_array: time3Digits,
     hour_unit_sc: 'time3/colon.png',
@@ -353,14 +367,86 @@ function buildSunday() {
     hour_unit_en: 'time3/colon.png',
     minute_follow: 1,
     minute_zero: 1,
-    minute_array: time3Digits
+    minute_array: time3Digits,
+    // seconds after a colon baked into bg_sun.png, inside the bubble
+    second_zero: 1,
+    second_startX: 264,
+    second_startY: 122,
+    second_array: dateDigits
   })
   bottomRow()
 }
 
+function buildMonday() {
+  // v9n consulting — light minimal face in the v9n.us design system.
+  // Wordmark, hairline, and chip outlines are baked into bg_mon.png.
+  cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg_mon.png' })
+  cw(hmUI.widget.IMG_WEEK, {
+    x: 112,
+    y: 106,
+    week_en: weekVArray,
+    week_sc: weekVArray,
+    week_tc: weekVArray
+  })
+  cw(hmUI.widget.IMG_DATE, {
+    month_startX: 194,
+    month_startY: 106,
+    month_zero: 1,
+    month_en_array: dateVDigits,
+    month_sc_array: dateVDigits,
+    month_tc_array: dateVDigits,
+    month_unit_en: 'date_v/slash.png',
+    month_unit_sc: 'date_v/slash.png',
+    month_unit_tc: 'date_v/slash.png',
+    day_follow: 1,
+    day_zero: 1,
+    day_en_array: dateVDigits,
+    day_sc_array: dateVDigits,
+    day_tc_array: dateVDigits
+  })
+  cw(hmUI.widget.IMG_TIME, {
+    hour_zero: 1,
+    hour_startX: 57,
+    hour_startY: 168,
+    hour_array: timeVDigits,
+    hour_unit_sc: 'time_v/colon.png',
+    hour_unit_tc: 'time_v/colon.png',
+    hour_unit_en: 'time_v/colon.png',
+    minute_follow: 1,
+    minute_zero: 1,
+    minute_array: timeVDigits,
+    second_zero: 1,
+    second_startX: 294,
+    second_startY: 218,
+    second_array: dateVDigits
+  })
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 30,
+    y: 330,
+    w: 155,
+    h: 44,
+    type: hmUI.data_type.STEP,
+    font_array: numVDigits,
+    align_h: hmUI.align.CENTER_H
+  })
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 205,
+    y: 330,
+    w: 155,
+    h: 44,
+    type: hmUI.data_type.BATTERY,
+    font_array: numVDigits,
+    unit_sc: 'num_v/percent.png',
+    unit_tc: 'num_v/percent.png',
+    unit_en: 'num_v/percent.png',
+    align_h: hmUI.align.CENTER_H
+  })
+}
+
 function render() {
   mode = dayMode()
-  if (mode === 'sat') buildSaturday()
+  if (mode === 'mon') buildMonday()
+  else if (mode === 'sat') buildSaturday()
   else if (mode === 'sun') buildSunday()
   else buildWeekday()
 }

@@ -281,24 +281,32 @@ BOTTOM_Y = 398  # shared steps/battery row on both weekend faces
 
 def make_bg_sun():
     bg = Image.new("RGBA", (W, H), (10, 10, 14, 255))
-    d3 = _pixel_img("0", 3, WHITE).width
+    dig3 = _pixel_img("0", 3, WHITE)
+    dig2 = _pixel_img("0", 2, WHITE)
     c3 = _pixel_img(":", 3, WHITE, crop_w=True).width
-    time3_w = 4 * d3 + c3
+    time3_w = 4 * dig3.width + c3
+    # seconds tail inside the bubble: baked scale-2 colon + two live digits
+    sec_colon = _pixel_img(":", 2, WHITE, crop_w=True)
+    sec_w = 4 + sec_colon.width + 4 + 2 * dig2.width
     lt = _pixel_img("<", 3, WHITE)
     gt = _pixel_img(">", 3, WHITE)
-    total = lt.width + 8 + time3_w + 8 + gt.width
+    total = lt.width + 8 + time3_w + sec_w + 8 + gt.width
     bub_x = (W - total) // 2
     time3_x = bub_x + lt.width + 8
+    sec2_y = TIME3_Y + dig3.height - dig2.height  # baseline-align with HH:MM
+    colon_x = time3_x + time3_w + 4
+    sec2_x = colon_x + sec_colon.width + 4
     bg.alpha_composite(lt, (bub_x, TIME3_Y))
-    bg.alpha_composite(gt, (bub_x + lt.width + 8 + time3_w + 8, TIME3_Y))
-    border = _pixel_img("_" * 13, 2, WHITE)
+    bg.alpha_composite(gt, (bub_x + lt.width + 8 + time3_w + sec_w + 8, TIME3_Y))
+    bg.alpha_composite(sec_colon, (colon_x, sec2_y))
+    border = _pixel_img("_" * 16, 2, WHITE)
     bg.alpha_composite(border, ((W - border.width) // 2, 54))
-    dashes = _pixel_img("-" * 13, 2, WHITE)
+    dashes = _pixel_img("-" * 16, 2, WHITE)
     bg.alpha_composite(dashes, ((W - dashes.width) // 2, 156))
     cow = _pixel_img(COW, 2, GRAY, line_step=16)
     bg.alpha_composite(cow, ((W - cow.width) // 2, 210))
     bg.convert("RGB").save(os.path.join(OUT, "bg_sun.png"))
-    return bg, time3_x
+    return bg, time3_x, sec2_x, sec2_y
 
 
 def paste_on(img, path, x, y):
@@ -348,14 +356,165 @@ def make_preview_sat(bg):
     img.convert("RGB").save(os.path.join(OUT, "preview_sat.png"))
 
 
-def make_preview_sun(bg, time3_x):
+def make_preview_sun(bg, time3_x, sec2_x, sec2_y):
     img = bg.copy()
     date_row_preview(img, "week/6.png", 8)
     x = time3_x
     for p in ("time3/1.png", "time3/0.png", "time3/colon.png", "time3/0.png", "time3/8.png"):
         x += paste_on(img, p, x, TIME3_Y)
+    x = sec2_x
+    for p in ("date/4.png", "date/2.png"):
+        x += paste_on(img, p, x, sec2_y)
     bottom_row_preview(img)
     img.convert("RGB").save(os.path.join(OUT, "preview_sun.png"))
+
+
+# ---- Monday: v9n consulting -------------------------------------------------
+# Light, minimal face in the v9n.us design system: white background,
+# #1a1a1a ink, #666 secondary gray, the site's 135-degree 1a1a1a -> 4a4a4a
+# gradient on the wordmark, and rounded-rect bordered chips (the
+# .contact-email treatment). Sans instead of pixels — Monday means work.
+V9N_INK = (26, 26, 26)
+V9N_GRAY = (102, 102, 102)
+V9N_BORDER = (186, 186, 189)  # rgba(26,26,26,0.3) composited on white
+V9N_HAIRLINE = (229, 229, 231)
+V9N_SANS_BOLD = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+V9N_SANS = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+
+
+def _sans_img(text, size, color, font_path=V9N_SANS_BOLD, fixed_w=None):
+    """Anti-aliased sans text on transparent background. Cell height is
+    ascent+descent (constant per size) so baselines line up across sprites;
+    fixed_w centers the glyph on a fixed cell for monospaced digit arrays."""
+    font = ImageFont.truetype(font_path, size)
+    ascent, descent = font.getmetrics()
+    h = ascent + descent
+    w = max(1, int(round(font.getlength(text))))
+    cw_ = fixed_w if fixed_w else w
+    img = Image.new("RGBA", (cw_, h), (0, 0, 0, 0))
+    ImageDraw.Draw(img).text((round((cw_ - w) / 2) if fixed_w else 0, 0),
+                             text, font=font, fill=color + (255,))
+    return img
+
+
+def _grad_fill(img, c1=(26, 26, 26), c2=(74, 74, 74)):
+    """Refill an RGBA sprite's alpha with the v9n 135-degree gradient."""
+    w, h = img.size
+    grad = Image.new("RGBA", (w, h))
+    px = grad.load()
+    for y in range(h):
+        ty = y / max(1, h - 1)
+        for x in range(w):
+            t = (x / max(1, w - 1) + ty) / 2
+            px[x, y] = tuple(int(a + (b - a) * t) for a, b in zip(c1, c2)) + (255,)
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.paste(grad, (0, 0), img.split()[3])
+    return out
+
+
+def make_fonts_v9n():
+    for sub in ("time_v", "date_v", "week_v", "num_v"):
+        os.makedirs(os.path.join(OUT, sub), exist_ok=True)
+    tw = int(round(ImageFont.truetype(V9N_SANS_BOLD, 86).getlength("0"))) + 2
+    dw = int(round(ImageFont.truetype(V9N_SANS, 30).getlength("0"))) + 2
+    nw = int(round(ImageFont.truetype(V9N_SANS_BOLD, 38).getlength("0"))) + 2
+    for i in range(10):
+        _sans_img(str(i), 86, V9N_INK, fixed_w=tw).save(
+            os.path.join(OUT, "time_v", f"{i}.png"))
+        _sans_img(str(i), 30, V9N_GRAY, V9N_SANS, fixed_w=dw).save(
+            os.path.join(OUT, "date_v", f"{i}.png"))
+        _sans_img(str(i), 38, V9N_INK, fixed_w=nw).save(
+            os.path.join(OUT, "num_v", f"{i}.png"))
+    _sans_img(":", 86, V9N_INK).save(os.path.join(OUT, "time_v", "colon.png"))
+    _sans_img("/", 30, V9N_GRAY, V9N_SANS).save(os.path.join(OUT, "date_v", "slash.png"))
+    _sans_img("%", 38, V9N_INK).save(os.path.join(OUT, "num_v", "percent.png"))
+    week_imgs = [_sans_img(n, 30, V9N_GRAY) for n in WEEKDAYS]
+    wk_w = max(im.width for im in week_imgs) + 2
+    for i, n in enumerate(WEEKDAYS):
+        _sans_img(n, 30, V9N_GRAY, fixed_w=wk_w).save(
+            os.path.join(OUT, "week_v", f"{i}.png"))
+    return {"tw": tw, "dw": dw, "nw": nw, "wk_w": wk_w,
+            "colon_w": Image.open(os.path.join(OUT, "time_v", "colon.png")).width,
+            "slash_w": Image.open(os.path.join(OUT, "date_v", "slash.png")).width,
+            "time_h": Image.open(os.path.join(OUT, "time_v", "0.png")).height,
+            "date_h": Image.open(os.path.join(OUT, "date_v", "0.png")).height}
+
+
+# chip geometry shared with index.js
+V9N_CHIPS = {"steps": (30, 292, 185, 384), "battery": (205, 292, 360, 384)}
+V9N_NUM_Y = 330  # TEXT_IMG y inside the chips
+
+
+def make_bg_mon(f):
+    """White page under the v9n.us menu bar: navy ribbon (business-card
+    #2c3e50 -> #34495e, 90deg), #5dade2 accent rule fading out to the right,
+    wordmark 'v9n' bold white + 'consulting' light #a9c7e0."""
+    NAVY1, NAVY2 = (44, 62, 80), (52, 73, 94)
+    ACCENT = (93, 173, 226)
+    LOGO_BLUE = (169, 199, 224)
+    RIBBON_H = 86
+    bg = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    d = ImageDraw.Draw(bg)
+    for x in range(W):
+        t = x / (W - 1)
+        navy = tuple(int(a + (b - a) * t) for a, b in zip(NAVY1, NAVY2))
+        d.rectangle([x, 0, x, RIBBON_H - 1], fill=navy + (255,))
+        # accent rule on the ribbon's bottom edge: opaque -> 0.4 at 50% -> 0
+        a = 1.0 - 1.2 * t if t <= 0.5 else 0.4 * (1 - (t - 0.5) * 2)
+        rule = tuple(int(n + (c - n) * a) for n, c in zip(navy, ACCENT))
+        d.rectangle([x, RIBBON_H - 3, x, RIBBON_H - 1], fill=rule + (255,))
+    wm1 = _sans_img("v9n ", 40, (255, 255, 255))
+    wm2 = _sans_img("consulting", 40, LOGO_BLUE, V9N_SANS)
+    x0 = (W - wm1.width - wm2.width) // 2
+    wm_y = (RIBBON_H - wm1.height) // 2
+    bg.alpha_composite(wm1, (x0, wm_y))
+    bg.alpha_composite(wm2, (x0 + wm1.width, wm_y))
+    hl_y = RIBBON_H + 4  # keeps the layout math below unchanged
+    for name, box in V9N_CHIPS.items():
+        d.rounded_rectangle(box, radius=14, outline=V9N_BORDER + (255,), width=3)
+        lab = _sans_img(name, 21, V9N_GRAY, V9N_SANS)
+        cx = (box[0] + box[2]) // 2
+        bg.alpha_composite(lab, (cx - lab.width // 2, box[1] + 10))
+    bg.convert("RGB").save(os.path.join(OUT, "bg_mon.png"))
+
+    # layout shared with index.js
+    c = {}
+    date_total = f["wk_w"] + 10 + 4 * f["dw"] + f["slash_w"]
+    c["WEEK_VX"] = (W - date_total) // 2
+    c["DATE_VY"] = hl_y + 16
+    c["MONTH_VX"] = c["WEEK_VX"] + f["wk_w"] + 10
+    time_w = 4 * f["tw"] + f["colon_w"]
+    group = time_w + 8 + 2 * f["dw"]
+    c["TIME_VX"] = (W - group) // 2
+    c["TIME_VY"] = 168
+    c["SECV_X"] = c["TIME_VX"] + time_w + 8
+    c["SECV_Y"] = c["TIME_VY"] + f["time_h"] - f["date_h"] - 12
+    return bg, c
+
+
+def make_preview_mon(bg, f, c):
+    img = bg.copy()
+    x = c["WEEK_VX"]
+    x += paste_on(img, "week_v/0.png", x, c["DATE_VY"]) + 10
+    for p in ("date_v/1.png", "date_v/1.png", "date_v/slash.png",
+              "date_v/1.png", "date_v/0.png"):
+        x += paste_on(img, p, x, c["DATE_VY"])
+    x = c["TIME_VX"]
+    for p in ("time_v/1.png", "time_v/0.png", "time_v/colon.png",
+              "time_v/0.png", "time_v/8.png"):
+        x += paste_on(img, p, x, c["TIME_VY"])
+    x = c["SECV_X"]
+    for p in ("date_v/3.png", "date_v/7.png"):
+        x += paste_on(img, p, x, c["SECV_Y"])
+    for name, digits in (("steps", "8476"), ("battery", "73%")):
+        box = V9N_CHIPS[name]
+        parts = ["num_v/percent.png" if ch == "%" else f"num_v/{ch}.png"
+                 for ch in digits]
+        tot = sum(Image.open(os.path.join(OUT, p)).width for p in parts)
+        x = (box[0] + box[2]) // 2 - tot // 2
+        for p in parts:
+            x += paste_on(img, p, x, V9N_NUM_Y)
+    img.convert("RGB").save(os.path.join(OUT, "preview_mon.png"))
 
 
 def make_icon():
@@ -432,16 +591,25 @@ if __name__ == "__main__":
     # weekend faces
     bg_sat = make_bg_sat()
     pupil_c = make_pupil_dot()
-    bg_sun, TIME3_X = make_bg_sun()
+    bg_sun, TIME3_X, SEC2_X, SEC2_Y = make_bg_sun()
     make_preview_sat(bg_sat)
-    make_preview_sun(bg_sun, TIME3_X)
+    make_preview_sun(bg_sun, TIME3_X, SEC2_X, SEC2_Y)
+
+    # Monday: v9n consulting
+    fv = make_fonts_v9n()
+    bg_mon, cv = make_bg_mon(fv)
+    make_preview_mon(bg_mon, fv, cv)
+    print("v9n constants:", " ".join(f"{k}={v}" for k, v in cv.items()),
+          f"CHIPS={V9N_CHIPS} NUM_Y={V9N_NUM_Y} "
+          f"num_h={Image.open(os.path.join(OUT, 'num_v', '0.png')).height}")
 
     print("assets written to", OUT)
     secd = Image.open(os.path.join(OUT, "secs", "0.png"))
     print(f"weekend constants: EYE_L={EYE_L} EYE_R={EYE_R} "
           f"PUPIL_ORBIT={PUPIL_ORBIT} PUPIL_C={pupil_c} "
           f"SEC_DIG={secd.width}x{secd.height} "
-          f"TIME3_X={TIME3_X} TIME3_Y={TIME3_Y} BOTTOM_Y={BOTTOM_Y}")
+          f"TIME3_X={TIME3_X} TIME3_Y={TIME3_Y} "
+          f"SEC2_X={SEC2_X} SEC2_Y={SEC2_Y} BOTTOM_Y={BOTTOM_Y}")
     print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
           f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
           f"GEAR_CENTER=({GEAR_CX},{GEAR_CY}) GEAR_POS={GEAR_SIZE // 2} "

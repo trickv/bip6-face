@@ -4,13 +4,16 @@ An old-school-Linux Zepp OS watchface for the Amazfit Bip 6 (390×450 AMOLED),
 in the classic X11 `misc-fixed` 10x20 bitmap font. Three layouts, picked by
 day of week:
 
-- **Mon–Fri: glxgears** — the green gear is the second hand (one revolution
+- **Monday: v9n consulting** — a light, minimal face in the
+  [v9n.us](https://v9n.us) design system: navy menu-bar ribbon with the
+  wordmark, sans type, and rounded-chip steps/battery.
+- **Tue–Fri: glxgears** — the green gear is the second hand (one revolution
   per minute, white marker tooth at 12 o'clock on the minute), with seconds
   in its hub, plus date, steps, battery %, and moon phase.
 - **Saturday: xeyes** — the left pupil orbits with the seconds and carries
   the seconds number inside it; the right pupil is a googly eye that rolls
   toward gravity (accelerometer).
-- **Sunday: cowsay** — the cow says the time.
+- **Sunday: cowsay** — the cow says the time, seconds included.
 
 ## Layout
 
