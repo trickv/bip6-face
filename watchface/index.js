@@ -5,7 +5,10 @@
 let Accelerometer = null
 try {
   Accelerometer = __$$RQR$$__('@zos/sensor').Accelerometer
-} catch (e) {}
+  console.log('glx: @zos/sensor loaded, Accelerometer=' + typeof Accelerometer)
+} catch (e) {
+  console.log('glx: @zos/sensor unavailable: ' + e)
+}
 
 const SCREEN_W = 390
 
