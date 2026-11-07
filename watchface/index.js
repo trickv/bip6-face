@@ -2,14 +2,16 @@
 // import that fails kills the whole face (verified: black screen), so load
 // it defensively through the runtime's require; if it's missing, the
 // googly eye degrades to a minute hand.
-// The 1.x watchface runtime has no module loader ('__$$RQR$$__' is not
-// defined), and declaring apiVersion 2.0+ removes the hm* globals this
-// face is built on — so '@zos/sensor' is unreachable here and the googly
-// eye runs as a minute hand. Kept guarded in case a future OS adds it.
+// PROBE build (apiVersion 2.0): does this runtime have BOTH the hm*
+// globals and the module loader? The on-face readout reports the answer.
 let Accelerometer = null
+let sensorDbg = ''
 try {
   Accelerometer = __$$RQR$$__('@zos/sensor').Accelerometer
-} catch (e) {}
+  sensorDbg = 'req ok: ' + typeof Accelerometer
+} catch (e) {
+  sensorDbg = 'req ERR: ' + e
+}
 
 const SCREEN_W = 390
 
@@ -227,6 +229,7 @@ let googlyPupil = null
 let satTimer = null
 let accel = null
 let accelOk = false
+let dbgText = null
 
 function placePupil(w, cx, cy) {
   w.setProperty(hmUI.prop.MORE, { x: cx - PUPIL_C, y: cy - PUPIL_C })
@@ -286,6 +289,7 @@ function startSat() {
       accelOk = true
     } catch (e) {
       accelOk = false
+      sensorDbg += ' | new ERR: ' + e
     }
   }
   if (accelOk) {
@@ -293,7 +297,11 @@ function startSat() {
       accel.start()
     } catch (e) {
       accelOk = false
+      sensorDbg += ' | start ERR: ' + e
     }
+  }
+  if (dbgText !== null) {
+    dbgText.setProperty(hmUI.prop.MORE, { text: sensorDbg })
   }
   try {
     tickSat()
@@ -452,6 +460,18 @@ function render() {
   else buildWeekday()
   // tiny build stamp (git commit, baked by gen_version.py at build time)
   cw(hmUI.widget.IMG, { x: 0, y: 426, src: 'version.png' })
+  // probe readout: sensor-load result, on-face
+  dbgText = cw(hmUI.widget.TEXT, {
+    x: 5,
+    y: 240,
+    w: 380,
+    h: 50,
+    color: 0xff8800,
+    text_size: 20,
+    align_h: hmUI.align.CENTER_H,
+    text_style: hmUI.text_style.WRAP,
+    text: sensorDbg
+  })
 }
 
 WatchFace({
