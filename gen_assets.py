@@ -63,14 +63,21 @@ def pixel_font():
     return _font
 
 
-def pixel_text(text, scale, color, out_path, crop_w=False):
-    """Render text in misc-fixed at native size with a 1px black outline,
-    then upscale with NEAREST for chunky pixels. crop_w trims empty columns
-    (used for the skinny colon)."""
+def _pixel_img(lines, scale, color, crop_w=False, line_step=None):
+    """Render misc-fixed text (a string, or a list of lines) at native size
+    with a 1px black outline, then upscale with NEAREST for chunky pixels.
+    crop_w trims empty columns (skinny glyphs like the colon); line_step
+    tightens multi-line leading (native px, default CELL_H)."""
     font = pixel_font()
-    nw, nh = CELL_W * len(text) + 2 * PAD, CELL_H + 2 * PAD
+    if isinstance(lines, str):
+        lines = [lines]
+    step = line_step or CELL_H
+    nw = CELL_W * max(len(l) for l in lines) + 2 * PAD
+    nh = (len(lines) - 1) * step + CELL_H + 2 * PAD
     mask = Image.new("L", (nw, nh), 0)
-    ImageDraw.Draw(mask).text((PAD, PAD), text, font=font, fill=255)
+    d = ImageDraw.Draw(mask)
+    for i, line in enumerate(lines):
+        d.text((PAD, PAD + i * step), line, font=font, fill=255)
     img = Image.new("RGBA", (nw, nh), (0, 0, 0, 0))
     black = Image.new("RGBA", (nw, nh), (0, 0, 0, 255))
     for dx in (-1, 0, 1):
@@ -81,7 +88,11 @@ def pixel_text(text, scale, color, out_path, crop_w=False):
     if crop_w:
         bbox = img.getbbox()
         img = img.crop((max(0, bbox[0] - 1), 0, min(nw, bbox[2] + 1), nh))
-    img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    return img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+
+
+def pixel_text(text, scale, color, out_path, crop_w=False):
+    img = _pixel_img(text, scale, color, crop_w)
     img.save(out_path)
     return img.size
 
@@ -146,14 +157,16 @@ def make_background():
 
 
 def make_fonts():
-    for sub in ("time", "date", "week", "steps", "batt"):
+    for sub in ("time", "time3", "date", "week", "steps", "batt"):
         os.makedirs(os.path.join(OUT, sub), exist_ok=True)
     for i in range(10):
         pixel_text(str(i), 5, WHITE, os.path.join(OUT, "time", f"{i}.png"))
+        pixel_text(str(i), 3, WHITE, os.path.join(OUT, "time3", f"{i}.png"))
         pixel_text(str(i), 2, WHITE, os.path.join(OUT, "date", f"{i}.png"))
         pixel_text(str(i), 2, RED, os.path.join(OUT, "steps", f"{i}.png"))
         pixel_text(str(i), 2, GREEN, os.path.join(OUT, "batt", f"{i}.png"))
     pixel_text(":", 5, WHITE, os.path.join(OUT, "time", "colon.png"), crop_w=True)
+    pixel_text(":", 3, WHITE, os.path.join(OUT, "time3", "colon.png"), crop_w=True)
     pixel_text("/", 2, WHITE, os.path.join(OUT, "date", "slash.png"))
     pixel_text("%", 2, GREEN, os.path.join(OUT, "batt", "percent.png"))
     for i, name in enumerate(WEEKDAYS):
@@ -209,6 +222,134 @@ def make_gear():
                      dim(GREEN, 0.62), 44, angle_offset=angle,
                      marker_color=(235, 235, 235))
     img.save(os.path.join(OUT, "gear.png"))
+
+
+# ---- weekend faces ---------------------------------------------------------
+# Saturday: xeyes. Two eyes; the pupils are TIME_POINTER hands orbiting the
+# eye centers (left eye = seconds, 1 rev/min; right eye = minutes, 1 rev/hr).
+EYE_L = (110, 195)
+EYE_R = (280, 195)
+EYE_RX, EYE_RY = 72, 95
+PUPIL_R, PUPIL_ORBIT = 19, 38
+
+
+def make_bg_sat():
+    bg = Image.new("RGBA", (W, H), (10, 10, 14, 255))
+    layer = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    for cx, cy in (EYE_L, EYE_R):
+        # gray rim so the eye edge reads against the black background
+        d.ellipse([(cx - EYE_RX - 6) * SS, (cy - EYE_RY - 6) * SS,
+                   (cx + EYE_RX + 6) * SS, (cy + EYE_RY + 6) * SS],
+                  fill=(95, 95, 100, 255))
+        d.ellipse([(cx - EYE_RX) * SS, (cy - EYE_RY) * SS,
+                   (cx + EYE_RX) * SS, (cy + EYE_RY) * SS],
+                  fill=(228, 228, 232, 255))
+    bg.alpha_composite(layer.resize((W, H), Image.LANCZOS))
+    bg.convert("RGB").save(os.path.join(OUT, "bg_sat.png"))
+    return bg
+
+
+def make_pupil():
+    """Pointer sprite: dark pupil disc at the top, pivot PUPIL_ORBIT below
+    its center, so the OS swings it around the eye center like xeyes."""
+    pad = 2
+    w = 2 * (PUPIL_R + pad)
+    h = PUPIL_R + pad + PUPIL_ORBIT + 4
+    layer = Image.new("RGBA", (w * SS, h * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    c = PUPIL_R + pad
+    d.ellipse([(c - PUPIL_R) * SS, (c - PUPIL_R) * SS,
+               (c + PUPIL_R) * SS, (c + PUPIL_R) * SS], fill=(22, 22, 28, 255))
+    layer.resize((w, h), Image.LANCZOS).save(os.path.join(OUT, "pupil.png"))
+    return c, c + PUPIL_ORBIT  # pivot for second/minute_posX/posY
+
+
+# Sunday: cowsay, time in the speech bubble. Everything but the live digits
+# is baked into bg_sun.png.
+COW = [
+    "\\   ^__^",
+    " \\  (oo)\\______",
+    "    (__)\\      )\\/\\",
+    "        ||----w |",
+    "        ||     ||",
+]
+TIME3_Y = 100
+BOTTOM_Y = 398  # shared steps/battery row on both weekend faces
+
+
+def make_bg_sun():
+    bg = Image.new("RGBA", (W, H), (10, 10, 14, 255))
+    d3 = _pixel_img("0", 3, WHITE).width
+    c3 = _pixel_img(":", 3, WHITE, crop_w=True).width
+    time3_w = 4 * d3 + c3
+    lt = _pixel_img("<", 3, WHITE)
+    gt = _pixel_img(">", 3, WHITE)
+    total = lt.width + 8 + time3_w + 8 + gt.width
+    bub_x = (W - total) // 2
+    time3_x = bub_x + lt.width + 8
+    bg.alpha_composite(lt, (bub_x, TIME3_Y))
+    bg.alpha_composite(gt, (bub_x + lt.width + 8 + time3_w + 8, TIME3_Y))
+    border = _pixel_img("_" * 13, 2, WHITE)
+    bg.alpha_composite(border, ((W - border.width) // 2, 54))
+    dashes = _pixel_img("-" * 13, 2, WHITE)
+    bg.alpha_composite(dashes, ((W - dashes.width) // 2, 156))
+    cow = _pixel_img(COW, 2, GRAY, line_step=16)
+    bg.alpha_composite(cow, ((W - cow.width) // 2, 210))
+    bg.convert("RGB").save(os.path.join(OUT, "bg_sun.png"))
+    return bg, time3_x
+
+
+def paste_on(img, path, x, y):
+    g = Image.open(os.path.join(OUT, path)).convert("RGBA")
+    img.alpha_composite(g, (x, y))
+    return g.width
+
+
+def bottom_row_preview(img):
+    """Sample steps (left) and battery (right) like the weekend bottomRow()."""
+    x = 30
+    for p in ("steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"):
+        x += paste_on(img, p, x, BOTTOM_Y)
+    parts = ["batt/7.png", "batt/3.png", "batt/percent.png"]
+    x = 360 - sum(Image.open(os.path.join(OUT, p)).width for p in parts)
+    for p in parts:
+        x += paste_on(img, p, x, BOTTOM_Y)
+
+
+def date_row_preview(img, week_png, y):
+    x = DATE_X
+    x += paste_on(img, week_png, x, y) + DATE_GAP
+    for p in ("date/1.png", "date/1.png", "date/slash.png", "date/0.png", "date/8.png"):
+        x += paste_on(img, p, x, y)
+
+
+def make_preview_sat(bg):
+    img = bg.copy()
+    date_row_preview(img, "week/5.png", DATE_Y)
+    # pupils at 10:08:42 — seconds 42 → 252°, minutes 8 → 48°
+    d = ImageDraw.Draw(img)
+    for (cx, cy), deg in ((EYE_L, 252), (EYE_R, 48)):
+        a = math.radians(deg)
+        px_ = cx + PUPIL_ORBIT * math.sin(a)
+        py = cy - PUPIL_ORBIT * math.cos(a)
+        d.ellipse([px_ - PUPIL_R, py - PUPIL_R, px_ + PUPIL_R, py + PUPIL_R],
+                  fill=(22, 22, 28, 255))
+    x = 57
+    for p in ("time/1.png", "time/0.png", "time/colon.png", "time/0.png", "time/8.png"):
+        x += paste_on(img, p, x, 296)
+    bottom_row_preview(img)
+    img.convert("RGB").save(os.path.join(OUT, "preview_sat.png"))
+
+
+def make_preview_sun(bg, time3_x):
+    img = bg.copy()
+    date_row_preview(img, "week/6.png", 8)
+    x = time3_x
+    for p in ("time3/1.png", "time3/0.png", "time3/colon.png", "time3/0.png", "time3/8.png"):
+        x += paste_on(img, p, x, TIME3_Y)
+    bottom_row_preview(img)
+    img.convert("RGB").save(os.path.join(OUT, "preview_sun.png"))
 
 
 def make_icon():
@@ -281,7 +422,18 @@ if __name__ == "__main__":
     TIME_Y = 108
 
     make_preview(bg)
+
+    # weekend faces
+    bg_sat = make_bg_sat()
+    pupil_px, pupil_py = make_pupil()
+    bg_sun, TIME3_X = make_bg_sun()
+    make_preview_sat(bg_sat)
+    make_preview_sun(bg_sun, TIME3_X)
+
     print("assets written to", OUT)
+    print(f"weekend constants: EYE_L={EYE_L} EYE_R={EYE_R} "
+          f"PUPIL_POS=({pupil_px},{pupil_py}) TIME3_X={TIME3_X} TIME3_Y={TIME3_Y} "
+          f"BOTTOM_Y={BOTTOM_Y}")
     print(f"index.js constants: WEEK_X={DATE_X} DATE_Y={DATE_Y} "
           f"MONTH_X={DATE_X + week_w + DATE_GAP} TIME_X={(W - time_w) // 2} TIME_Y={TIME_Y} "
           f"GEAR_CENTER=({GEAR_CX},{GEAR_CY}) GEAR_POS={GEAR_SIZE // 2} "

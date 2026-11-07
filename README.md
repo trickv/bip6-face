@@ -1,7 +1,15 @@
 # bip6-face — "GLX Gears"
 
-A glxgears-inspired Zepp OS watchface for the Amazfit Bip 6 (390×450 AMOLED).
-Shows digital time (HH:MM), today's step count, and battery %.
+An old-school-Linux Zepp OS watchface for the Amazfit Bip 6 (390×450 AMOLED),
+in the classic X11 `misc-fixed` 10x20 bitmap font. Three layouts, picked by
+day of week:
+
+- **Mon–Fri: glxgears** — the green gear is the second hand (one revolution
+  per minute, white marker tooth at 12 o'clock on the minute), with seconds
+  in its hub, plus date, steps, battery %, and moon phase.
+- **Saturday: xeyes** — the pupils are pointer hands: left eye orbits once
+  per minute (seconds), right eye once per hour (minutes).
+- **Sunday: cowsay** — the cow says the time.
 
 ## Layout
 

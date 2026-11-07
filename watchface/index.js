@@ -14,6 +14,7 @@ const digitArray = (dir) => [
 ]
 
 const timeDigits = digitArray('time')
+const time3Digits = digitArray('time3')
 const dateDigits = digitArray('date')
 const stepDigits = digitArray('steps')
 const battDigits = digitArray('batt')
@@ -33,118 +34,229 @@ const weekArray = [
   'week/6.png'
 ]
 
+// Three layouts: weekdays = glxgears, Saturday = xeyes, Sunday = cowsay.
+// The layout is chosen by day of week at build time and re-checked every
+// time the face resumes, so the Monday flip happens on first wake.
+let timeSensor = null
+let widgets = []
+let mode = ''
+
+function cw(type, cfg) {
+  const w = hmUI.createWidget(type, cfg)
+  widgets.push(w)
+  return w
+}
+
+function dayMode() {
+  // time sensor week: 1 = Monday .. 7 = Sunday
+  if (timeSensor.week === 6) return 'sat'
+  if (timeSensor.week === 7) return 'sun'
+  return 'weekday'
+}
+
+// WEEK MM/DD row — week images 64px wide + 12px gap, digits 24px, slash 24px
+function dateRow(y) {
+  cw(hmUI.widget.IMG_WEEK, {
+    x: 97,
+    y: y,
+    week_en: weekArray,
+    week_sc: weekArray,
+    week_tc: weekArray
+  })
+  cw(hmUI.widget.IMG_DATE, {
+    month_startX: 173,
+    month_startY: y,
+    month_zero: 1,
+    month_en_array: dateDigits,
+    month_sc_array: dateDigits,
+    month_tc_array: dateDigits,
+    month_unit_en: 'date/slash.png',
+    month_unit_sc: 'date/slash.png',
+    month_unit_tc: 'date/slash.png',
+    day_follow: 1,
+    day_zero: 1,
+    day_en_array: dateDigits,
+    day_sc_array: dateDigits,
+    day_tc_array: dateDigits
+  })
+}
+
+// compact weekend footer: steps bottom-left (red), battery bottom-right (green)
+function bottomRow() {
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 30,
+    y: 398,
+    w: 150,
+    h: 44,
+    type: hmUI.data_type.STEP,
+    font_array: stepDigits,
+    align_h: hmUI.align.LEFT
+  })
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 210,
+    y: 398,
+    w: 150,
+    h: 44,
+    type: hmUI.data_type.BATTERY,
+    font_array: battDigits,
+    unit_sc: 'batt/percent.png',
+    unit_tc: 'batt/percent.png',
+    unit_en: 'batt/percent.png',
+    align_h: hmUI.align.RIGHT
+  })
+}
+
+function buildWeekday() {
+  cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'background.png' })
+
+  // the green gear is the "second hand": the OS rotates it about its
+  // center 6° per second, one revolution per minute. The sprite is
+  // authored with its white marker tooth pointing up, which is the
+  // second-0 orientation — so the marker hits 12 o'clock at :00.
+  cw(hmUI.widget.TIME_POINTER, {
+    second_centerX: 320,
+    second_centerY: 230,
+    second_posX: 106,
+    second_posY: 106,
+    second_path: 'gear.png'
+  })
+
+  // moon phase disc, right of the battery % (MOON_X/MOON_Y in
+  // gen_assets.py) — the top-right corner is clipped by the rounded screen
+  cw(hmUI.widget.IMG_LEVEL, {
+    x: 300,
+    y: 376,
+    image_array: moonArray,
+    image_length: moonArray.length,
+    type: hmUI.data_type.MOON,
+    show_level: hmUI.show_level.ONLY_NORMAL
+  })
+
+  dateRow(52)
+
+  // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total.
+  // Small seconds (the 24x44 white date digits) sit in the gear's hub —
+  // the hub is the rotation pivot, so it stays put under them.
+  cw(hmUI.widget.IMG_TIME, {
+    hour_zero: 1,
+    hour_startX: 57,
+    hour_startY: 108,
+    hour_array: timeDigits,
+    hour_unit_sc: 'time/colon.png',
+    hour_unit_tc: 'time/colon.png',
+    hour_unit_en: 'time/colon.png',
+    minute_follow: 1,
+    minute_zero: 1,
+    minute_array: timeDigits,
+    second_zero: 1,
+    second_startX: 296,
+    second_startY: 208,
+    second_array: dateDigits
+  })
+
+  cw(hmUI.widget.IMG, { x: 169, y: 252, src: 'label_steps.png' })
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 0,
+    y: 280,
+    w: SCREEN_W,
+    h: 44,
+    type: hmUI.data_type.STEP,
+    font_array: stepDigits,
+    align_h: hmUI.align.CENTER_H
+  })
+
+  cw(hmUI.widget.IMG, { x: 159, y: 344, src: 'label_batt.png' })
+  cw(hmUI.widget.TEXT_IMG, {
+    x: 0,
+    y: 372,
+    w: SCREEN_W,
+    h: 44,
+    type: hmUI.data_type.BATTERY,
+    font_array: battDigits,
+    unit_sc: 'batt/percent.png',
+    unit_tc: 'batt/percent.png',
+    unit_en: 'batt/percent.png',
+    align_h: hmUI.align.CENTER_H
+  })
+}
+
+function buildSaturday() {
+  // xeyes. The pupils are pointer hands orbiting the eye centers
+  // (sprite pivot from gen_assets.py PUPIL_POS): left eye sweeps once
+  // per minute (seconds), right eye once per hour (minutes).
+  cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg_sat.png' })
+  cw(hmUI.widget.TIME_POINTER, {
+    second_centerX: 110,
+    second_centerY: 195,
+    second_posX: 21,
+    second_posY: 59,
+    second_path: 'pupil.png',
+    minute_centerX: 280,
+    minute_centerY: 195,
+    minute_posX: 21,
+    minute_posY: 59,
+    minute_path: 'pupil.png'
+  })
+  dateRow(52)
+  cw(hmUI.widget.IMG_TIME, {
+    hour_zero: 1,
+    hour_startX: 57,
+    hour_startY: 296,
+    hour_array: timeDigits,
+    hour_unit_sc: 'time/colon.png',
+    hour_unit_tc: 'time/colon.png',
+    hour_unit_en: 'time/colon.png',
+    minute_follow: 1,
+    minute_zero: 1,
+    minute_array: timeDigits
+  })
+  bottomRow()
+}
+
+function buildSunday() {
+  // cowsay: the bubble, cow, and < > are baked into bg_sun.png;
+  // only the scale-3 time digits inside the bubble are live.
+  cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg_sun.png' })
+  dateRow(8)
+  cw(hmUI.widget.IMG_TIME, {
+    hour_zero: 1,
+    hour_startX: 112,
+    hour_startY: 100,
+    hour_array: time3Digits,
+    hour_unit_sc: 'time3/colon.png',
+    hour_unit_tc: 'time3/colon.png',
+    hour_unit_en: 'time3/colon.png',
+    minute_follow: 1,
+    minute_zero: 1,
+    minute_array: time3Digits
+  })
+  bottomRow()
+}
+
+function render() {
+  mode = dayMode()
+  if (mode === 'sat') buildSaturday()
+  else if (mode === 'sun') buildSunday()
+  else buildWeekday()
+}
+
 WatchFace({
   onInit() {},
 
   build() {
-    hmUI.createWidget(hmUI.widget.IMG, {
-      x: 0,
-      y: 0,
-      src: 'background.png'
-    })
-
-    // the green gear is the "second hand": the OS rotates it about its
-    // center 6° per second, one revolution per minute. The sprite is
-    // authored with its white marker tooth pointing up, which is the
-    // second-0 orientation — so the marker hits 12 o'clock at :00.
-    hmUI.createWidget(hmUI.widget.TIME_POINTER, {
-      second_centerX: 320,
-      second_centerY: 230,
-      second_posX: 106,
-      second_posY: 106,
-      second_path: 'gear.png'
-    })
-
-    // moon phase disc, right of the battery % (MOON_X/MOON_Y in
-    // gen_assets.py) — the top-right corner is clipped by the rounded screen
-    hmUI.createWidget(hmUI.widget.IMG_LEVEL, {
-      x: 300,
-      y: 376,
-      image_array: moonArray,
-      image_length: moonArray.length,
-      type: hmUI.data_type.MOON,
-      show_level: hmUI.show_level.ONLY_NORMAL
-    })
-
-    // WEEK MM/DD row — week images 64px wide + 12px gap, digits 24px, slash 24px
-    hmUI.createWidget(hmUI.widget.IMG_WEEK, {
-      x: 97,
-      y: 52,
-      week_en: weekArray,
-      week_sc: weekArray,
-      week_tc: weekArray
-    })
-
-    hmUI.createWidget(hmUI.widget.IMG_DATE, {
-      month_startX: 173,
-      month_startY: 52,
-      month_zero: 1,
-      month_en_array: dateDigits,
-      month_sc_array: dateDigits,
-      month_tc_array: dateDigits,
-      month_unit_en: 'date/slash.png',
-      month_unit_sc: 'date/slash.png',
-      month_unit_tc: 'date/slash.png',
-      day_follow: 1,
-      day_zero: 1,
-      day_en_array: dateDigits,
-      day_sc_array: dateDigits,
-      day_tc_array: dateDigits
-    })
-
-    // HH:MM — digits are 60px wide, colon 35px, so 4*60 + 35 = 275 total.
-    // Small seconds (the 24x44 white date digits) sit in the gear's hub —
-    // the hub is the rotation pivot, so it stays put under them.
-    hmUI.createWidget(hmUI.widget.IMG_TIME, {
-      hour_zero: 1,
-      hour_startX: 57,
-      hour_startY: 108,
-      hour_array: timeDigits,
-      hour_unit_sc: 'time/colon.png',
-      hour_unit_tc: 'time/colon.png',
-      hour_unit_en: 'time/colon.png',
-      minute_follow: 1,
-      minute_zero: 1,
-      minute_array: timeDigits,
-      second_zero: 1,
-      second_startX: 296,
-      second_startY: 208,
-      second_array: dateDigits
-    })
-
-    hmUI.createWidget(hmUI.widget.IMG, {
-      x: 169,
-      y: 252,
-      src: 'label_steps.png'
-    })
-
-    hmUI.createWidget(hmUI.widget.TEXT_IMG, {
-      x: 0,
-      y: 280,
-      w: SCREEN_W,
-      h: 44,
-      type: hmUI.data_type.STEP,
-      font_array: stepDigits,
-      align_h: hmUI.align.CENTER_H
-    })
-
-    hmUI.createWidget(hmUI.widget.IMG, {
-      x: 159,
-      y: 344,
-      src: 'label_batt.png'
-    })
-
-    hmUI.createWidget(hmUI.widget.TEXT_IMG, {
-      x: 0,
-      y: 372,
-      w: SCREEN_W,
-      h: 44,
-      type: hmUI.data_type.BATTERY,
-      font_array: battDigits,
-      unit_sc: 'batt/percent.png',
-      unit_tc: 'batt/percent.png',
-      unit_en: 'batt/percent.png',
-      align_h: hmUI.align.CENTER_H
+    timeSensor = hmSensor.createSensor(hmSensor.id.TIME)
+    render()
+    // re-check the day whenever the face wakes; rebuild on a day-class change
+    hmUI.createWidget(hmUI.widget.WIDGET_DELEGATE, {
+      resume_call: function () {
+        if (dayMode() !== mode) {
+          widgets.forEach(function (w) {
+            hmUI.deleteWidget(w)
+          })
+          widgets = []
+          render()
+        }
+      }
     })
   },
 
