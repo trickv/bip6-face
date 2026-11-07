@@ -1,4 +1,11 @@
-import { Accelerometer } from '@zos/sensor'
+// '@zos/sensor' is not officially part of the watchface API. A top-level
+// import that fails kills the whole face (verified: black screen), so load
+// it defensively through the runtime's require; if it's missing, the
+// googly eye degrades to a minute hand.
+let Accelerometer = null
+try {
+  Accelerometer = __$$RQR$$__('@zos/sensor').Accelerometer
+} catch (e) {}
 
 const SCREEN_W = 390
 
@@ -255,7 +262,7 @@ function tickSat() {
 
 function startSat() {
   if (satTimer !== null) return
-  if (accel === null) {
+  if (accel === null && Accelerometer !== null) {
     try {
       accel = new Accelerometer()
       accelOk = true
@@ -270,8 +277,10 @@ function startSat() {
       accelOk = false
     }
   }
-  tickSat()
-  satTimer = timer.createTimer(250, 250, tickSat)
+  try {
+    tickSat()
+    satTimer = timer.createTimer(250, 250, tickSat)
+  } catch (e) {}
 }
 
 function stopSat() {
