@@ -449,6 +449,8 @@ function render() {
   else if (mode === 'sat') buildSaturday()
   else if (mode === 'sun') buildSunday()
   else buildWeekday()
+  // tiny build stamp (git commit, baked by gen_version.py at build time)
+  cw(hmUI.widget.IMG, { x: 0, y: 426, src: 'version.png' })
 }
 
 WatchFace({

@@ -1,3 +1,4 @@
 node_modules/
 dist/
 .zeus-global/
+assets/bip6/version.png

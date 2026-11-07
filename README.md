@@ -28,6 +28,7 @@ day of week:
 ```sh
 npm i -g @zeppos/zeus-cli   # official Zepp OS CLI (needs Node)
 python3 gen_assets.py       # only if you changed the art
+python3 gen_version.py      # tiny on-face build stamp (git commit)
 zeus build                  # produces dist/*.zab
 ```
 
