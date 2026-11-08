@@ -35,8 +35,10 @@ VCARD = "\r\n".join([
 ])
 
 CARDS = [
-    ("card1.png", "https://v9n.us", "v9n.us"),
-    ("card2.png", "https://trick.vanstaveren.us", "trick.vanstaveren.us"),
+    # UTM args so QR-driven visits are tellable apart in analytics; the
+    # vCard URL stays clean because it's stored visibly in the contact.
+    ("card1.png", "https://v9n.us/?utm_source=bip6&utm_medium=qr&utm_campaign=v9n-card", "v9n.us"),
+    ("card2.png", "https://trick.vanstaveren.us/?utm_source=bip6&utm_medium=qr&utm_campaign=v9n-card", "trick.vanstaveren.us"),
     ("card3.png", VCARD, "save my number"),
 ]
 

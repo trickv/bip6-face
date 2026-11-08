@@ -24,20 +24,22 @@ FONT_BOLD = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 
 def parse_blocks(lines):
-    """Split capture into contiguous half-block QR line groups, keeping the
-    non-QR line that precedes each (zeus prints '[Device] app-version' there)."""
-    blocks, cur, context, last_text = [], [], [], ""
+    """Split capture into contiguous half-block QR line groups, each paired
+    with the device line right above it: zeus prints '[Amazfit Bip 6]
+    app-version' as the last text line before the QR."""
+    blocks, cur, label = [], [], None
     for line in lines:
         if re.search(r"[█▀▄]", line):
             cur.append(line.rstrip())
         else:
             if cur:
-                blocks.append((last_text, cur))
-                cur = []
-            if line.strip():
-                last_text = line.strip()
+                blocks.append((label, cur))
+                cur, label = [], None
+            m = re.match(r"\[(?![✔✗x!])[^\]]+\]\s*(\S.*)", line.strip())
+            if m:
+                label = m.group(1).strip()
     if cur:
-        blocks.append((last_text, cur))
+        blocks.append((label, cur))
     return blocks
 
 
@@ -87,8 +89,7 @@ def main():
         sys.exit("no QR block found in " + src)
     context, qr_lines = blocks[-1]
     if label is None:
-        m = re.search(r"\[[^\]]+\]\s*(\S.*)", context)
-        label = m.group(1).strip() if m else "unknown app"
+        label = context or "unknown app"
 
     rows = block_to_matrix(qr_lines)
     qw = (len(rows[0]) + 2 * QUIET) * MODULE
