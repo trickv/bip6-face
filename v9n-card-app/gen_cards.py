@@ -24,6 +24,9 @@ LOGO_BLUE = (169, 199, 224)
 VCARD = "\r\n".join([
     "BEGIN:VCARD",
     "VERSION:3.0",
+    # N is required for iOS to show a person's name; FN alone gets ignored
+    # and the contact card falls back to ORG.
+    "N:van Staveren;Patrick;;;",
     "FN:Patrick van Staveren",
     "ORG:v9n consulting",
     "TEL;TYPE=CELL:+13124690036",
