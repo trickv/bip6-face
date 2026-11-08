@@ -57,6 +57,9 @@ Page({
   onInit() {},
 
   build() {
+    try {
+      hmUI.setStatusBarVisible(false)
+    } catch (e) {}
     hmUI.createWidget(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg.png' })
     pupilL = hmUI.createWidget(hmUI.widget.IMG, {
       x: EYE_L_X - PUPIL_C,

@@ -12,7 +12,9 @@
     "vender": "trickv",
     "description": "xeyes for the wrist: googly eyes that follow gravity"
   },
-  "permissions": ["device:os.accelerometer"],
+  "permissions": [
+    "device:os.accelerometer"
+  ],
   "runtime": {
     "apiVersion": {
       "compatible": "4.0",
@@ -24,7 +26,9 @@
     "common": {
       "module": {
         "page": {
-          "pages": ["page/index"]
+          "pages": [
+            "page/index"
+          ]
         }
       },
       "platforms": [

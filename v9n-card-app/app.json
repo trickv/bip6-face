@@ -1,0 +1,46 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 25080704,
+    "appName": "v9n card",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "1.0.0"
+    },
+    "icon": "icon.png",
+    "vender": "trickv",
+    "description": "v9n consulting business card: logo + QR codes (site, blog, vCard)"
+  },
+  "permissions": [],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "4.0",
+      "target": "4.0",
+      "minVersion": "4.0"
+    }
+  },
+  "targets": {
+    "common": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/index"
+          ]
+        }
+      },
+      "platforms": [
+        {
+          "st": "s",
+          "dw": 390
+        }
+      ]
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "v9n card"
+    }
+  },
+  "defaultLanguage": "en-US"
+}
