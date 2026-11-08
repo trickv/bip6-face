@@ -5,8 +5,8 @@
     "appName": "GLX Gears",
     "appType": "watchface",
     "version": {
-      "code": 2,
-      "name": "1.0.2"
+      "code": 3,
+      "name": "1.0.3"
     },
     "icon": "icon.png",
     "vender": "trickv",

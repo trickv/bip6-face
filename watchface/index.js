@@ -100,11 +100,16 @@ function dateRow(y) {
   })
 }
 
-// compact weekend footer: steps bottom-left (red), battery bottom-right (green)
+// compact weekend footer: steps bottom-left (red), battery bottom-right
+// (green). The Bip 6 panel has an 86px corner radius (official device
+// list), and the glass rounds off a bit more than that — at the old
+// x=30/y=398 the digit boxes reached ~96px from the corner-arc center
+// and the real screen clipped them. x=64/y=390 keeps the glyph boxes
+// ~73px from the arc centers: inside with margin.
 function bottomRow() {
   cw(hmUI.widget.TEXT_IMG, {
-    x: 30,
-    y: 398,
+    x: 64,
+    y: 390,
     w: 150,
     h: 44,
     type: hmUI.data_type.STEP,
@@ -112,8 +117,8 @@ function bottomRow() {
     align_h: hmUI.align.LEFT
   })
   cw(hmUI.widget.TEXT_IMG, {
-    x: 210,
-    y: 398,
+    x: 176,
+    y: 390,
     w: 150,
     h: 44,
     type: hmUI.data_type.BATTERY,

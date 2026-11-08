@@ -276,7 +276,9 @@ COW = [
     "        ||     ||",
 ]
 TIME3_Y = 100
-BOTTOM_Y = 398  # shared steps/battery row on both weekend faces
+# shared steps/battery row on both weekend faces; inset from the panel's
+# 86px rounded corners (see bottomRow() in watchface/index.js)
+BOTTOM_Y = 390
 
 
 def make_bg_sun():
@@ -317,11 +319,11 @@ def paste_on(img, path, x, y):
 
 def bottom_row_preview(img):
     """Sample steps (left) and battery (right) like the weekend bottomRow()."""
-    x = 30
+    x = 64
     for p in ("steps/8.png", "steps/4.png", "steps/7.png", "steps/6.png"):
         x += paste_on(img, p, x, BOTTOM_Y)
     parts = ["batt/7.png", "batt/3.png", "batt/percent.png"]
-    x = 360 - sum(Image.open(os.path.join(OUT, p)).width for p in parts)
+    x = 326 - sum(Image.open(os.path.join(OUT, p)).width for p in parts)
     for p in parts:
         x += paste_on(img, p, x, BOTTOM_Y)
 
