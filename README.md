@@ -43,6 +43,11 @@ zeus build                  # produces dist/*.zab
 2. `zeus login` (same Zepp account as the phone app), then `zeus preview` — prints a QR code.
 3. Zepp app → Profile → your Bip 6 → Developer Mode → scan the QR. The face installs over Bluetooth; pick it in the watch's watchface list (long-press the face or Settings → Watchface).
 
+No second device needed: `qr2png.py <terminal-capture> <out.png>` turns the
+terminal QR into a PNG annotated with the app name, timestamp, and git
+revision — save it to the phone's photo album and use the album picker inside
+the Developer Mode scanner. Commit first so the revision stamp is clean.
+
 ## Mini apps
 
 The two bonus apps build the same way, each from its own directory:
