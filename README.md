@@ -48,6 +48,10 @@ terminal QR into a PNG annotated with the app name, timestamp, and git
 revision — save it to the phone's photo album and use the album picker inside
 the Developer Mode scanner. Commit first so the revision stamp is clean.
 
+Any commit that changes the watchface or an app should also bump that app's
+version (`python3 bump_version.py <dir>`, or `all`), so the version zeus
+prints — and qr2png.py bakes into the album PNG — identifies the build.
+
 ## Mini apps
 
 The two bonus apps build the same way, each from its own directory:
