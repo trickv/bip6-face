@@ -306,8 +306,25 @@ def make_bg_sun():
     dashes = _pixel_img("-" * 16, 2, WHITE)
     bg.alpha_composite(dashes, ((W - dashes.width) // 2, 156))
     cow = _pixel_img(COW, 2, GRAY, line_step=16)
-    bg.alpha_composite(cow, ((W - cow.width) // 2, 210))
+    cow_x = (W - cow.width) // 2
+    bg.alpha_composite(cow, (cow_x, 210))
     bg.convert("RGB").save(os.path.join(OUT, "bg_sun.png"))
+
+    # blink patches: the "oo" sits at row 1, cols 5-6 of the cow grid.
+    # Crop that cell pair from the composite (open) and from a re-render
+    # with "(--)" lids (shut) so both patches align pixel-perfectly.
+    ex = cow_x + 2 * (PAD + 5 * CELL_W)
+    ey = 210 + 2 * (PAD + 1 * 16)
+    ew, eh = 2 * 2 * CELL_W, 2 * CELL_H
+    box = (ex, ey, ex + ew, ey + eh)
+    bg.convert("RGB").crop(box).save(os.path.join(OUT, "eyes_open.png"))
+    shut_cow = _pixel_img(
+        [l.replace("(oo)", "(--)") for l in COW], 2, GRAY, line_step=16
+    )
+    shut = Image.new("RGBA", (W, H), (10, 10, 14, 255))
+    shut.alpha_composite(shut_cow, (cow_x, 210))
+    shut.convert("RGB").crop(box).save(os.path.join(OUT, "eyes_shut.png"))
+    print(f"sun blink patch: EYE_SUN_X={ex} EYE_SUN_Y={ey} ({ew}x{eh})")
     return bg, time3_x, sec2_x, sec2_y
 
 

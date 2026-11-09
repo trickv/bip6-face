@@ -306,10 +306,57 @@ function buildSaturday() {
   startSat()
 }
 
+// Sunday cow blink: a 40x40 patch over the baked "(oo)" swaps to
+// closed lids for one tick every 3-10 s (coords from gen_assets.py)
+const EYE_SUN_X = 105
+const EYE_SUN_Y = 244
+let cowEyes = null
+let sunTimer = null
+let blinkT = 0
+let blinkAt = 16
+
+function tickSun() {
+  blinkT++
+  if (blinkT === blinkAt) {
+    cowEyes.setProperty(hmUI.prop.MORE, {
+      x: EYE_SUN_X,
+      y: EYE_SUN_Y,
+      src: 'eyes_shut.png'
+    })
+  } else if (blinkT > blinkAt) {
+    cowEyes.setProperty(hmUI.prop.MORE, {
+      x: EYE_SUN_X,
+      y: EYE_SUN_Y,
+      src: 'eyes_open.png'
+    })
+    blinkT = 0
+    blinkAt = 12 + Math.floor(Math.random() * 29) // 3-10 s at 4 Hz
+  }
+}
+
+function startSun() {
+  if (sunTimer !== null) return
+  try {
+    sunTimer = timer.createTimer(250, 250, tickSun)
+  } catch (e) {}
+}
+
+function stopSun() {
+  if (sunTimer !== null) {
+    timer.stopTimer(sunTimer)
+    sunTimer = null
+  }
+}
+
 function buildSunday() {
   // cowsay: the bubble, cow, and < > are baked into bg_sun.png;
   // only the scale-3 time digits inside the bubble are live.
   cw(hmUI.widget.IMG, { x: 0, y: 0, src: 'bg_sun.png' })
+  cowEyes = cw(hmUI.widget.IMG, {
+    x: EYE_SUN_X,
+    y: EYE_SUN_Y,
+    src: 'eyes_open.png'
+  })
   dateRow(8)
   cw(hmUI.widget.IMG_TIME, {
     hour_zero: 1,
@@ -329,6 +376,7 @@ function buildSunday() {
     second_array: dateDigits
   })
   bottomRow()
+  startSun()
 }
 
 function buildMonday() {
@@ -419,6 +467,7 @@ WatchFace({
       resume_call: function () {
         if (dayMode() !== mode) {
           stopSat()
+          stopSun()
           widgets.forEach(function (w) {
             hmUI.deleteWidget(w)
           })
@@ -426,15 +475,19 @@ WatchFace({
           render()
         } else if (mode === 'sat') {
           startSat()
+        } else if (mode === 'sun') {
+          startSun()
         }
       },
       pause_call: function () {
         stopSat()
+        stopSun()
       }
     })
   },
 
   onDestroy() {
     stopSat()
+    stopSun()
   }
 })
